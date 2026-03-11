@@ -1,0 +1,11 @@
+<configuration>
+    <input>
+        <net-file value="network_5_intersections.net.xml"/>
+        <route-files value="episode_routes.rou.xml, pedestrian_routes.rou.xml"/>
+        <additional-files value="TL_combination.add.xml"/>
+	</input>
+
+    <processing>
+        <threads value = "20"/>
+    </processing>
+</configuration>
