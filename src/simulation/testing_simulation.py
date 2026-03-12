@@ -47,7 +47,7 @@ class Simulation:
         self.waiting_ped = intersection_manager.create_waiting_zones()
         self.tl_names = intersection_manager.create_tl_names()
         self.incoming_roads = intersection_manager.create_incoming_routes()
-        self.lanes_200_400 = intersection_manager.create_200_400_routes()
+        self.lanes_110_132 = intersection_manager.create_110_132_routes()
         self.map_env = intersection_manager.create_map_environment_()
         self.sapa = sapa.sapa_module()
 
@@ -79,7 +79,7 @@ class Simulation:
             for idx, C in self.intersections.items():
                 if C.dur == 0 or C.dur == -1:
                     if C.yellow == 0:
-                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_200_400, C.old_action)
+                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, C.old_action)
                         if idx < 5:
                             C.action = self._choose_action(current_state, idx, self._Model_Cell_1)
                         else:

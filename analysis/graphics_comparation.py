@@ -16,18 +16,18 @@ name_2 = '2 NN - High Radial In - Sapa adj'
 diretoria = r'C:\Users\ggalvao\Desktop\9_intersections\5_5_sapa_adj'
 os.makedirs(diretoria, exist_ok=True)
 
-# Lista de colunas que queres comparar
-metrics_reward = ['reward_0', 'reward_1', 'reward_2', 'reward_3', 'reward_4', 'reward_5', 'reward_6', 'reward_7', 'reward_8']
+# Lista de colunas que queres comparar (4 interseções: C1, C2, C3, C4)
+metrics_reward = ['reward_1', 'reward_2', 'reward_3', 'reward_4']
 
-metrics_queue = ['queue_0', 'queue_1', 'queue_2', 'queue_3', 'queue_4', 'queue_5', 'queue_6', 'queue_7', 'queue_8']
+metrics_queue = ['queue_1', 'queue_2', 'queue_3', 'queue_4']
 
-metrics_ped = ['ped_halting_0', 'ped_halting_1', 'ped_halting_2', 'ped_halting_3', 'ped_halting_4', 'ped_halting_5', 'ped_halting_6', 'ped_halting_7', 'ped_halting_8']
+metrics_ped = ['ped_halting_1', 'ped_halting_2', 'ped_halting_3', 'ped_halting_4']
 
-metrics_speed = ['speed_med_0', 'speed_med_1', 'speed_med_2', 'speed_med_3', 'speed_med_4', 'speed_med_5', 'speed_med_6', 'speed_med_7', 'speed_med_8']
+metrics_speed = ['speed_med_1', 'speed_med_2', 'speed_med_3', 'speed_med_4']
 
-metrics_wt = ['avg_wt_0', 'avg_wt_1','avg_wt_2', 'avg_wt_3','avg_wt_4', 'avg_wt_5', 'avg_wt_6', 'avg_wt_7', 'avg_wt_8',]
+metrics_wt = ['avg_wt_1', 'avg_wt_2', 'avg_wt_3', 'avg_wt_4']
 
-metrics_phase_time = ['avg_phase_time_0', 'avg_phase_time_1', 'avg_phase_time_2', 'avg_phase_time_3', 'avg_phase_time_4', 'avg_phase_time_5', 'avg_phase_time_6', 'avg_phase_time_7', 'avg_phase_time_8', ]
+metrics_phase_time = ['avg_phase_time_1', 'avg_phase_time_2', 'avg_phase_time_3', 'avg_phase_time_4']
 
 metric_lane_volume = ['lane_volume_0']
 

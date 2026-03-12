@@ -42,7 +42,7 @@ class Simulation:
         self.waiting_ped = intersection_manager.create_waiting_zones()
         self.tl_names = intersection_manager.create_tl_names()
         self.incoming_roads = intersection_manager.create_incoming_routes()
-        self.lanes_200_400 = intersection_manager.create_200_400_routes()
+        self.lanes_110_132 = intersection_manager.create_110_132_routes()
         self.map_env = intersection_manager.create_map_environment_()
         self.sapa = sapa.sapa_module()
 
@@ -67,10 +67,7 @@ class Simulation:
             if self.intersections[0].dur == -1:
                 for idx, C in self.intersections.items():
                     # obter estado atual
-                    current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_200_400, 0)
-
-                    # tempos de espera
-                    current_total_wait = C.collect_waiting_times(self.incoming_roads[idx])
+                    current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, 0)
                     ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
                     # escolher nova ação
@@ -91,7 +88,7 @@ class Simulation:
             for idx, C in self.intersections.items():
                 if C.dur == 0:
                     if C.yellow == 0:
-                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_200_400, C.old_action)
+                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, C.old_action)
                         current_total_wait = C.collect_waiting_times(self.incoming_roads[idx])
                         ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 

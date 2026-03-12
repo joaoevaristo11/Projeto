@@ -289,31 +289,31 @@ class Intersection:
         return new_state
 
 
-    def get_state(self, idx, wz, routes, lanes_200_400, action):
+    def get_state(self, idx, wz, routes, lanes_110_132, action):
         """
         Retrieve the state of the intersection from sumo, in the form of cell occupancy
         """
 
-        thresholds_200 = [7, 15, 25, 35, 55, 70, 100, 130, 150, 200]
-        thresholds_400 = [7, 15, 25, 35, 55, 75, 100, 150, 200, 400]
+        thresholds_110 = [7, 15, 25, 35, 55, 70, 100, 110]  # Estradas de 110m
+        thresholds_132 = [7, 15, 25, 35, 55, 75, 100, 132]  # Estradas de 132m
         thresholds_100 = [7, 14, 20, 30, 40, 50, 60, 70, 80, 100]
 
         num_states_base = 164
         state = np.zeros(num_states_base)
 
         lane = routes[idx]
-        lanes200 = lanes_200_400[0]
-        lanes400 = lanes_200_400[1]
+        lanes110 = lanes_110_132[0]
+        lanes132 = lanes_110_132[1]
 
         for lane_id in lane:
 
             # determinar thresholds automaticamente
-            if lane_id in lanes200:
-                thresholds = thresholds_200
-                lane_len = 200
-            elif lane_id in lanes400:
-                thresholds = thresholds_400
-                lane_len = 400
+            if lane_id in lanes110:
+                thresholds = thresholds_110
+                lane_len = 110
+            elif lane_id in lanes132:
+                thresholds = thresholds_132
+                lane_len = 132
             else:
                 thresholds = thresholds_100
                 lane_len = 100

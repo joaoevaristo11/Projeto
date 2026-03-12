@@ -1,6 +1,6 @@
 # 🚦 Sistema Multi-Agente de Controlo de Tráfego com DDQN
 
-> Um sistema inteligente de gestão de tráfego urbano utilizando Deep Double Q-Learning (DDQN) para controlar 9 interseções de forma coordenada e adaptativa.
+> Um sistema inteligente de gestão de tráfego urbano utilizando Deep Double Q-Learning (DDQN) para controlar 4 interseções de forma coordenada e adaptativa.
 
 ---
 
@@ -19,11 +19,11 @@
 
 ## 🎯 Sobre o Projeto
 
-Este projeto implementa um **sistema multi-agente de controlo de tráfego** baseado em **aprendizagem por reforço profundo**. Através do algoritmo **DDQN (Deep Double Q-Network)**, o sistema aprende a controlar semáforos em 9 interseções de forma inteligente, minimizando tempos de espera de veículos e pedestres.
+Este projeto implementa um **sistema multi-agente de controlo de tráfego** baseado em **aprendizagem por reforço profundo**. Através do algoritmo **DDQN (Deep Double Q-Network)**, o sistema aprende a controlar semáforos em 4 interseções de forma inteligente, minimizando tempos de espera de veículos e pedestres.
 
 ### Características Principais
 
-- ✅ **9 Agentes Inteligentes** controlando interseções independentes
+- ✅ **4 Agentes Inteligentes** controlando interseções independentes (J1, J2, J3, J4)
 - ✅ **Aprendizagem por Reforço** com redes neuronais profundas (TensorFlow/Keras)
 - ✅ **Simulação Realista** usando SUMO (Simulation of Urban MObility)
 - ✅ **Gestão de Tráfego Misto** (veículos + pedestres)
@@ -91,7 +91,7 @@ Multi-Agent-DDQN-Traffic-Control-System/
 │   │   ├── testing_simulation.py   # Loop de teste
 │   │   ├── generator.py             # Geração de tráfego de veículos
 │   │   ├── ped_generator.py         # Geração de tráfego de pedestres
-│   │   └── intersection_manager.py  # Gestão das 9 interseções
+│   │   └── intersection_manager.py  # Gestão das 4 interseções (J1-J4)
 │   │
 │   ├── 📂 algorithms/               # Algoritmos especializados
 │   │   └── sapa.py                  # SAPA (ajuste adaptativo de fases)
@@ -102,7 +102,7 @@ Multi-Agent-DDQN-Traffic-Control-System/
 │
 ├── 📂 sumo/                         # Ficheiros do simulador SUMO
 │   ├── network.net.xml              # Rede de tráfego (1 interseção)
-│   ├── network_5_intersections.net.xml  # Rede com 9 interseções
+│   ├── network_5_intersections.net.xml  # Rede com 4 interseções (J1-J4)
 │   ├── sumo_config.sumocfg          # Configuração principal SUMO
 │   ├── TL_combination.add.xml       # Definição de fases dos semáforos
 │   ├── episode_routes.rou.xml       # Rotas de veículos (gerado)
@@ -195,9 +195,9 @@ Gera tráfego de pedestres.
 - Ficheiro de saída: `pedestrian_routes.rou.xml`
 
 #### **`intersection_manager.py`**
-Gestão centralizada das 9 interseções.
+Gestão centralizada das 4 interseções.
 
-- Mapeamento de IDs (J0-J8 → C0-C8)
+- Mapeamento de IDs (J1-J4 → C1-C4)
 - Definição de faixas de rodagem por interseção
 - Zonas de espera de pedestres
 - Coordenação entre células

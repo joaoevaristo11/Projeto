@@ -34,12 +34,12 @@ column_mapping = {
     'lane_volume': ['BI']
 }
 
-reward_files = [f'reward_C{i}.txt' for i in range(9)]
-queue_files = [f'Queue_{i}.txt' for i in range(9)]
-ped_halting_files = [f'Pedestrian Halting C{i}.txt' for i in range(9)]
-speed_med_files = [f'Average Vehicle Speed C{i}.txt' for i in range(9)]
-wt_med_files = [f'Average Waiting Time C{i}.txt' for i in range(9)]
-pT_med_files = [f'Average Phase Time in C{i}.txt' for i in range(9)]
+reward_files = [f'reward_C{i}.txt' for i in range(1, 5)]  # 4 interseções: C1, C2, C3, C4
+queue_files = [f'Queue_{i}.txt' for i in range(1, 5)]
+ped_halting_files = [f'Pedestrian Halting C{i}.txt' for i in range(1, 5)]
+speed_med_files = [f'Average Vehicle Speed C{i}.txt' for i in range(1, 5)]
+wt_med_files = [f'Average Waiting Time C{i}.txt' for i in range(1, 5)]
+pT_med_files = [f'Average Phase Time in C{i}.txt' for i in range(1, 5)]
 extra_files = {f'Lane Volume.txt'}
 
 # Inicializar Excel
