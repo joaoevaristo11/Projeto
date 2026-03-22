@@ -10,44 +10,41 @@ TRAFFIC_LIGHT_NAME_3 = "J3"
 TRAFFIC_LIGHT_NAME_4 = "J4"  
 
 
-# ============================================================================
-# ZONAS DE ESPERA DE PEDESTRES - CROSSINGS (Passadeiras)
-# ============================================================================
-# IDs das travessias/passadeiras onde pedestres atravessam a interseção
-# Usados para detetar pedestres em espera para atravessar
+""" 
+============================================================================
+ZONAS DE ESPERA DE PEDESTRES - CROSSINGS (Passadeiras)
+============================================================================
+IDs das travessias/passadeiras onde pedestres atravessam a interseção
+Usados para detetar pedestres em espera para atravessar"""
 
 waiting_zonesTL1 = [":J1_c0", ":J1_c1", ":J1_c2", ":J1_c3"]  # 4 passadeiras em J1
 waiting_zonesTL2 = [":J2_c0", ":J2_c1", ":J2_c2", ":J2_c3"]  # 4 passadeiras em J2
 waiting_zonesTL3 = [":J3_c0", ":J3_c1", ":J3_c2", ":J3_c3"]  # 4 passadeiras em J3
 waiting_zonesTL4 = [":J4_c0", ":J4_c1", ":J4_c2", ":J4_c3"]  # 4 passadeiras em J4
 
-
-# ============================================================================
-# ZONAS DE ESPERA DE PEDESTRES - WALKING AREAS (Áreas de Espera)
-# ============================================================================
-# IDs das áreas de espera nos cantos da interseção (antes de atravessar)
-# Usados para contar pedestres em espera para entrar na passadeira
+""" 
+============================================================================
+ZONAS DE ESPERA DE PEDESTRES - WALKING AREAS (Áreas de Espera)
+============================================================================
+IDs das áreas de espera nos cantos da interseção (antes de atravessar)
+Usados para contar pedestres em espera para entrar na passadeira""" 
 
 waiting_zones_lanes_TL1 = [":J1_w0_0", ":J1_w1_0", ":J1_w2_0", ":J1_w3_0"]  # Cantos de J1
 waiting_zones_lanes_TL2 = [":J2_w0_0", ":J2_w1_0", ":J2_w2_0", ":J2_w3_0"]  # Cantos de J2
 waiting_zones_lanes_TL3 = [":J3_w0_0", ":J3_w1_0", ":J3_w2_0", ":J3_w3_0"]  # Cantos de J3
 waiting_zones_lanes_TL4 = [":J4_w0_0", ":J4_w1_0", ":J4_w2_0", ":J4_w3_0"]  # Cantos de J4
 
-
-# ============================================================================
-# FAIXAS DE TRÁFEGO (LANES) QUE ENTRAM EM CADA INTERSEÇÃO
-# ============================================================================
-# Lista de todas as LANES (faixas) que chegam a cada interseção
-# Usados pelo agente para observar o estado do tráfego (densidade, fila, etc.)
-
+""" 
+============================================================================
+FAIXAS DE TRÁFEGO (LANES) QUE ENTRAM EM CADA INTERSEÇÃO
+============================================================================
+Lista de todas as LANES que chegam a cada interseção""" 
 
 # TL1: Cruzamento Av. Marquês de Tomar com Av. Elias Garcia (Noroeste)
 route_TL1 = [
-    'MT_NS_1_1',   # Avenida Marquês de Tomar Norte-Sul, segmento 1, faixa 1
-    'MT_NS_1_2',   # Avenida Marquês de Tomar Norte-Sul, segmento 1, faixa 2
+    'MT_NS_1',   # Avenida Marquês de Tomar Norte-Sul, segmento 1, faixa 1  # Avenida Marquês de Tomar Norte-Sul, segmento 1, faixa 2
     'EG_WE_1',     # Avenida Elias Garcia Oeste-Este, segmento 1
-    'MT_SN_2_1',   # Avenida Marquês de Tomar Sul-Norte, segmento 2, faixa 1
-    'MT_SN_2_2',   # Avenida Marquês de Tomar Sul-Norte, segmento 2, faixa 2
+    'MT_SN_2',   # Avenida Marquês de Tomar Sul-Norte, segmento 2, faixa 1   # Avenida Marquês de Tomar Sul-Norte, segmento 2, faixa 2
     'EG_EW_2'      # Avenida Elias Garcia Este-Oeste, segmento 2
 ]
 
@@ -63,45 +60,43 @@ route_TL2 = [
 
 # TL3: Cruzamento Av. 5 de Outubro com Av. Visconde de Valmor (Sudeste)
 route_TL3 = [
-    '510_NS_2_1',  # Avenida 5 de Outubro Norte-Sul, segmento 2, faixa 1
-    '510_NS_2_2',  # Avenida 5 de Outubro Norte-Sul, segmento 2, faixa 2
-    'VV_EW_1',     # Avenida Visconde de Valmor Este-Oeste, segmento 1
-    'VV_WE_2',     # Avenida Visconde de Valmor Oeste-Este, segmento 2
-    '510_SN_1_1',  # Avenida 5 de Outubro Sul-Norte, segmento 1, faixa 1
-    '510_SN_1_2'   # Avenida 5 de Outubro Sul-Norte, segmento 1, faixa 2
+    'MT_NS_2',   # Av. Marquês de Tomar Norte→Sul, segmento 2 (vem de J1)
+    'VV_WE_1',   # Av. Visconde de Valmor Oeste→Este, segmento 1 (externo Oeste)
+    'VV_EW_2',   # Av. Visconde de Valmor Este→Oeste, segmento 2 (vem de J4)
+    'MT_SN_1',   # Av. Marquês de Tomar Sul→Norte, segmento 1 (externo Sul)
 ]
-
-# TL4: Cruzamento Av. Marquês de Tomar com Av. Visconde de Valmor (Sudoeste)
+ 
+# J4: Cruzamento Av. 5 de Outubro x Av. Visconde de Valmor (Sudeste)
 route_TL4 = [
-    'MT_NS_2_1',   # Avenida Marquês de Tomar Norte-Sul, segmento 2, faixa 1
-    'MT_NS_2_2',   # Avenida Marquês de Tomar Norte-Sul, segmento 2, faixa 2
-    'VV_WE_1',     # Avenida Visconde de Valmor Oeste-Este, segmento 1
-    'VV_EW_2',     # Avenida Visconde de Valmor Este-Oeste, segmento 2
-    'MT_SN_1_1',   # Avenida Marquês de Tomar Sul-Norte, segmento 1, faixa 1
-    'MT_SN_1_2'    # Avenida Marquês de Tomar Sul-Norte, segmento 1, faixa 2
+    '510_NS_2_1',  # Av. 5 de Outubro Norte→Sul, segmento 2, faixa 1 (vem de J2)
+    '510_NS_2_2',  # Av. 5 de Outubro Norte→Sul, segmento 2, faixa 2 (vem de J2)
+    'VV_EW_1',     # Av. Visconde de Valmor Este→Oeste, segmento 1 (externo Este)
+    'VV_WE_2',     # Av. Visconde de Valmor Oeste→Este, segmento 2 (vem de J3)
+    '510_SN_1_1',  # Av. 5 de Outubro Sul→Norte, segmento 1, faixa 1 (externo Sul)
+    '510_SN_1_2',  # Av. 5 de Outubro Sul→Norte, segmento 1, faixa 2 (externo Sul)
 ]
 
 # ============================================================================
 # CLASSIFICAÇÃO DE ESTRADAS POR COMPRIMENTO 
 # ============================================================================
-# Código antigo para classificar estradas por comprimento (110m vs 132m)
-# Usado pelo módulo SAPA para ajustar tempos de verde dinamicamente
 
-roads_110m = ['MT_SN_2_1', 
-              'MT_SN_2_2', 
-              'MT_NS_2_1', 
-              'MT_NS_2_2', 
-              '510_NS_2_1', 
-              '510_NS_2_2', 
-              '510_SN_2_1',
-              '510_SN_2_2'
-              ]  # Estradas curtas
-roads_132m = ['EG_EW_2',
-              'EG_WE_2',
-              'VV_EW_2',
-              'VV_WE_2']  # Estradas longas
+roads_110m = [
+    'MT_NS_1', 'MT_NS_2', 'MT_NS_3',
+    'MT_SN_1', 'MT_SN_2', 'MT_SN_3',
+    '510_NS_1_1', '510_NS_1_2',
+    '510_NS_2_1', '510_NS_2_2',
+    '510_NS_3_1', '510_NS_3_2',
+    '510_SN_1_1', '510_SN_1_2',
+    '510_SN_2_1', '510_SN_2_2',
+    '510_SN_3_1', '510_SN_3_2',
+] 
 
-
+roads_132m = [
+    'EG_EW_1', 'EG_EW_2', 'EG_EW_3',
+    'EG_WE_1', 'EG_WE_2', 'EG_WE_3',
+    'VV_EW_1', 'VV_EW_2', 'VV_EW_3',
+    'VV_WE_1', 'VV_WE_2', 'VV_WE_3',
+]
 
 # ============================================================================
 # FUNÇÕES DE INICIALIZAÇÃO
@@ -155,10 +150,10 @@ def create_incoming_routes():
     #Retorna os edges (estradas, sem número de faixa) que chegam a cada interseção.
     
     return {
-        1: ["MT_NS_1", "EG_WE_2", "EG_WE_1", "MT_SN_2"],      # J1: 4 edges de entrada
+        1: ["MT_NS_1", "EG_WE_1", "MT_SN_2", "EG_EW_2"],      # J1: 4 edges de entrada
         2: ["510_NS_1", "EG_EW_1", "EG_WE_2", "510_SN_2"],    # J2: 4 edges de entrada
-        3: ["510_NS_2", "VV_EW_1", "VV_WE_2", "510_SN_1"],    # J3: 4 edges de entrada
-        4: ["MT_NS_2", "VV_WE_2", "VV_EW_1", "MT_SN_1"],      # J4: 4 edges de entrada
+        3: ["MT_NS_2", "VV_WE_1", "VV_EW_2", "MT_SN_1"],    # J3: 4 edges de entrada
+        4: ["510_NS_2", "VV_EW_1", "VV_WE_2", "510_SN_1"],      # J4: 4 edges de entrada
     }
 
 

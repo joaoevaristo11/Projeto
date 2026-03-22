@@ -10,18 +10,26 @@ class TrafficGenerator:
         self._scenario = scenario
 
         self._circular_prob, self._in_out_prob = self.get_probs_by_scenario(self._scenario)
-        # print(self._circular_prob, self._in_out_prob)
 
     def get_probs_by_scenario(self, scenario):
+        # circular_prob : prob. de usar artéria horizontal (EG/VV) vs. vertical (MT/510)
+        # in_out_prob   : prob. de movimento Norte->Sul vs. Sul->Norte
+        #
+        # Cenário 6 — dados reais recolhidos no terreno (hora de ponta 17h30-18h30):
+        #   circular_prob = 0.286  (28.6% do tráfego é horizontal)
+        #   in_out_prob   = 0.448  (44.8% do vertical é NS, 55.2% é SN)
+        #   Total médio   ~ 4204 veículos/hora
+        #   Fonte: contagens manuais e por vídeo na zona do IMT, março 2026
         scenario_probs = {
-            1: (0.50, 0.50),
-            2: (0.65, 0.75),
-            3: (0.65, 0.25),
+            1: (0.50, 0.50),   # equilibrado
+            2: (0.65, 0.75),   # hora de ponta manhã
+            3: (0.65, 0.25),   # hora de ponta tarde
             4: (0.25, 0.75),
-            5: (0.25, 0.25)
+            5: (0.25, 0.25),
+            6: (0.29, 0.45),   # REAL: hora de ponta (dados terreno IMT, março 2026)
         }
         if scenario not in scenario_probs:
-            raise ValueError(f"Cenário inválido: {scenario}. Deve ser um número entre 1 e 5.")
+            raise ValueError(f"Cenário inválido: {scenario}. Deve ser um número entre 1 e 6.")
         return scenario_probs[scenario]
 
     def generate_routefile(self, seed):
@@ -52,230 +60,219 @@ class TrafficGenerator:
         with open("sumo/episode_routes.rou.xml", "w") as routes:
             print("""<routes>
             <vType accel="1.0" decel="4.5" id="standard_car" length="5.0" minGap="2.5" maxSpeed="13.9" depart_speed = "13.9" sigma="0.5" />
-            
-            <route id="W_E" edges="W_TL0 TL0_TL TL_TL2 TL2_TL5 TL5_TL6 TL6_E"/>
-            <route id="W_S4" edges="W_TL0 TL0_TL TL_TL4 TL4_S"/>
-            <route id="W_S2" edges="W_TL0 TL0_TL TL_TL2 TL2_S"/>
-            <route id="W_S8" edges="W_TL0 TL0_TL TL_TL2 TL2_TL5 TL5_TL8 TL8_S"/>
-            
-            <route id="W_W3" edges="W_TL0 TL0_TL TL_TL3 TL3_W"/>
-            <route id="W_N2" edges="W_TL0 TL0_TL TL_TL2 TL2_N"/>
-            <route id="W_N6" edges="W_TL0 TL0_TL TL_TL2 TL2_TL5 TL5_TL6 TL6_N"/>
-            
-            <route id="E_W" edges="E_TL6 TL6_TL5 TL5_TL2 TL2_TL TL_TL0 TL0_W"/>
-            <route id="E_N7" edges="E_TL6 TL6_TL5 TL5_TL7 TL7_N"/>
-            <route id="E_N2" edges="E_TL6 TL6_TL5 TL5_TL2 TL2_N"/>
-            <route id="E_N3" edges="E_TL6 TL6_TL5 TL5_TL2 TL2_TL TL_TL3 TL3_N"/>
-            
-            <route id="E_E8" edges="E_TL6 TL6_TL5 TL5_TL8 TL8_E"/>
-            <route id="E_S2" edges="E_TL6 TL6_TL5 TL5_TL2 TL2_S"/>
-            <route id="E_S0" edges="E_TL6 TL6_TL5 TL5_TL2 TL2_TL TL_TL0 TL0_S"/>
-            
-            <route id="N3_S4" edges="N_TL3 TL3_TL TL_TL4 TL4_S"/>
-            <route id="N3_W3" edges="N_TL3 TL3_W"/>
-            <route id="N3_E4" edges="N_TL3 TL3_TL TL_TL4 TL4_E"/>
-            <route id="S4_N3" edges="S_TL4 TL4_TL TL_TL3 TL3_N"/>
-            <route id="S4_E3" edges="S_TL4 TL4_TL TL_TL3 TL3_E"/>
-            <route id="S4_W0" edges="S_TL4 TL4_TL TL_TL0 TL0_W"/>
-            
-            <route id="N7_S8" edges="N_TL7 TL7_TL5 TL5_TL8 TL8_S"/>
-            <route id="N7_E6" edges="N_TL7 TL7_TL5 TL5_TL6 TL6_E"/>
-            <route id="N7_E8" edges="N_TL7 TL7_TL5 TL5_TL8 TL8_E"/>
-            <route id="S8_N7" edges="S_TL8 TL8_TL5 TL5_TL7 TL7_N"/>
-            <route id="S8_W7" edges="S_TL8 TL8_TL5 TL5_TL7 TL7_W"/>
-            <route id="S8_N2" edges="S_TL8 TL8_TL5 TL5_TL2 TL2_N"/>
-            
-            
-            
-            
-            <route id="N0_S0" edges="N_TL0 TL0_S"/>
-            <route id="S0_N0" edges="S_TL0 TL0_N"/>
-            
-            <route id="N6_S6" edges="N_TL6 TL6_S"/>
-            <route id="S6_N6" edges="S_TL6 TL6_N"/>
-            
-            <route id="N2_S2" edges="N_TL2 TL2_S"/>
-            <route id="S2_N2" edges="S_TL2 TL2_N"/>
-            
-            <route id="W3_E3" edges="W_TL3 TL3_E"/>
-            <route id="E3_W3" edges="E_TL3 TL3_W"/>
-            
-            <route id="W4_E4" edges="W_TL4 TL4_E"/>
-            <route id="E4_W4" edges="E_TL4 TL4_W"/>
-            
-            <route id="W7_E7" edges="W_TL7 TL7_E"/>
-            <route id="E7_W7" edges="E_TL7 TL7_W"/>
-            
-            <route id="W8_E8" edges="W_TL8 TL8_E"/>
-            <route id="E8_W8" edges="E_TL8 TL8_W"/>
-            
-            <route id="N0_L" edges="N_TL0 TL0_TL TL_TL3 TL3_W"/>
-            <route id="W0_L" edges="W_TL0 TL0_N"/>
-            <route id="S0_L" edges="S_TL0 TL0_W"/>
-            
-            <route id="S6_L" edges="S_TL6 TL6_TL5 TL5_TL8 TL8_E"/>
-            <route id="N6_L" edges="N_TL6 TL6_E"/>
-            <route id="E6_L" edges="E_TL6 TL6_S"/>
-            
-            <route id="W3_L" edges="W_TL3 TL3_N"/>
-            <route id="E3_L" edges="E_TL3 TL3_TL TL_TL2 TL2_N"/>
-            <route id="N3_L" edges="N_TL3 TL3_E"/>
-            
-            <route id="S4_L" edges="S_TL4 TL4_W"/>
-            <route id="E4_L" edges="E_TL4 TL4_S"/>
-            <route id="W4_L" edges="W_TL4 TL4_TL TL_TL0 TL0_S"/>
-            
-            <route id="S8_L" edges="S_TL8 TL8_W"/>
-            <route id="E8_L" edges="E_TL8 TL8_S"/>
-            <route id="W8_L" edges="W_TL8 TL8_TL5 TL5_TL2 TL2_S"/>
-            
-            <route id="S2_L" edges="S_TL2 TL2_TL TL_TL4 TL4_E"/>
-            <route id="N2_L" edges="N_TL2 TL2_TL5 TL5_TL7 TL7_W"/>""", file=routes)
 
-            #cenario = [[0.50, 0.50], [0.65, 0.75], [0.65, 0.25], [0.35, 0.75], [0.35, 0.35]]
+            <!-- Artéria circular horizontal: Av. Elias Garcia (EG) -->
+            <!-- Oeste -> Este -->
+            <route id="EG_W_recto"  edges="EG_WE_1 EG_WE_2 EG_WE_3"/>
+            <route id="EG_W_MT_S"   edges="EG_WE_1 MT_NS_2 MT_NS_3"/>
+            <route id="EG_W_MT_N"   edges="EG_WE_1 MT_SN_3"/>
+            <route id="EG_W_510_S"  edges="EG_WE_1 EG_WE_2 510_NS_2 510_NS_3"/>
+            <route id="EG_W_510_N"  edges="EG_WE_1 EG_WE_2 510_SN_3"/>
+            <!-- Este -> Oeste -->
+            <route id="EG_E_recto"  edges="EG_EW_1 EG_EW_2 EG_EW_3"/>
+            <route id="EG_E_510_S"  edges="EG_EW_1 510_NS_2 510_NS_3"/>
+            <route id="EG_E_510_N"  edges="EG_EW_1 510_SN_3"/>
+            <route id="EG_E_MT_S"   edges="EG_EW_1 EG_EW_2 MT_NS_2 MT_NS_3"/>
+            <route id="EG_E_MT_N"   edges="EG_EW_1 EG_EW_2 MT_SN_3"/>
+
+            <!-- Artéria circular horizontal: Av. Visconde de Valmor (VV) -->
+            <!-- Oeste -> Este -->
+            <route id="VV_W_recto"  edges="VV_WE_1 VV_WE_2 VV_WE_3"/>
+            <route id="VV_W_MT_N"   edges="VV_WE_1 MT_SN_2 MT_SN_3"/>
+            <route id="VV_W_MT_S"   edges="VV_WE_1 MT_NS_3"/>
+            <route id="VV_W_510_S"  edges="VV_WE_1 VV_WE_2 510_NS_3"/>
+            <route id="VV_W_510_N"  edges="VV_WE_1 VV_WE_2 510_SN_2 510_SN_3"/>
+            <!-- Este -> Oeste -->
+            <route id="VV_E_recto"  edges="VV_EW_1 VV_EW_2 VV_EW_3"/>
+            <route id="VV_E_510_S"  edges="VV_EW_1 510_NS_3"/>
+            <route id="VV_E_510_N"  edges="VV_EW_1 510_SN_2 510_SN_3"/>
+            <route id="VV_E_MT_S"   edges="VV_EW_1 VV_EW_2 MT_NS_3"/>
+            <route id="VV_E_MT_N"   edges="VV_EW_1 VV_EW_2 MT_SN_2 MT_SN_3"/>
+
+            <!-- Artéria radial vertical: Av. Marquês de Tomar (MT) -->
+            <!-- Norte -> Sul -->
+            <route id="MT_N_recto"  edges="MT_NS_1 MT_NS_2 MT_NS_3"/>
+            <route id="MT_N_EG_E"   edges="MT_NS_1 EG_WE_2 EG_WE_3"/>
+            <route id="MT_N_EG_W"   edges="MT_NS_1 EG_EW_3"/>
+            <route id="MT_N_VV_E"   edges="MT_NS_1 MT_NS_2 VV_WE_2 VV_WE_3"/>
+            <route id="MT_N_VV_W"   edges="MT_NS_1 MT_NS_2 VV_EW_3"/>
+            <!-- Sul -> Norte -->
+            <route id="MT_S_recto"  edges="MT_SN_1 MT_SN_2 MT_SN_3"/>
+            <route id="MT_S_VV_E"   edges="MT_SN_1 VV_WE_2 VV_WE_3"/>
+            <route id="MT_S_VV_W"   edges="MT_SN_1 VV_EW_3"/>
+            <route id="MT_S_EG_E"   edges="MT_SN_1 MT_SN_2 EG_WE_2 EG_WE_3"/>
+            <route id="MT_S_EG_W"   edges="MT_SN_1 MT_SN_2 EG_EW_3"/>
+
+            <!-- Artéria radial vertical: Av. 5 de Outubro (510) -->
+            <!-- Norte -> Sul -->
+            <route id="C510_N_recto" edges="510_NS_1 510_NS_2 510_NS_3"/>
+            <route id="C510_N_EG_W"  edges="510_NS_1 EG_EW_2 EG_EW_3"/>
+            <route id="C510_N_EG_E"  edges="510_NS_1 EG_WE_3"/>
+            <route id="C510_N_VV_W"  edges="510_NS_1 510_NS_2 VV_EW_2 VV_EW_3"/>
+            <route id="C510_N_VV_E"  edges="510_NS_1 510_NS_2 VV_WE_3"/>
+            <!-- Sul -> Norte -->
+            <route id="C510_S_recto" edges="510_SN_1 510_SN_2 510_SN_3"/>
+            <route id="C510_S_VV_W"  edges="510_SN_1 VV_EW_2 VV_EW_3"/>
+            <route id="C510_S_VV_E"  edges="510_SN_1 VV_WE_3"/>
+            <route id="C510_S_EG_W"  edges="510_SN_1 510_SN_2 EG_EW_2 EG_EW_3"/>
+            <route id="C510_S_EG_E"  edges="510_SN_1 510_SN_2 EG_WE_3"/>""", file=routes)
+
+            # Probabilidades derivadas dos dados reais (hora de ponta, zona IMT):
+            #
+            # Horizontal (EG vs VV): EG=74.2%, VV=25.8%  → eg_prob = 0.742
+            # Dentro EG: OE=44.7%, EO=55.3%              → eg_west_east = 0.447
+            # Dentro VV: OE=51.9%, EO=48.1%              → vv_west_east = 0.519
+            # Vertical (MT vs 510): MT=37.4%, 510=62.6%  → mt_prob = 0.374
+            # MT  NS/SN: 41.7% / 58.3%                   → mt_in_out = 0.417
+            # 510 NS/SN: 46.6% / 53.4%                   → c510_in_out = 0.466
 
             for car_counter, step in enumerate(car_gen_steps):
                 straight_or_turn = np.random.uniform()
                 if straight_or_turn < 0.75:  # choose direction: straight or turn - 75% of times the car goes straight
                     arterial_routes = np.random.uniform()
-                    if arterial_routes < self._circular_prob:# Artéria circular
-                        west_east_routes = np.random.uniform()
-                        if west_east_routes < 0.50:
-                            route_straight = np.random.randint(1, 8)
-                            if route_straight == 1:
-                                print('    <vehicle id="W_E_%i" type="standard_car" route="W_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 2:
-                                print('    <vehicle id="W_S4_%i" type="standard_car" route="W_S4" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 3:
-                                print('    <vehicle id="W_S2_%i" type="standard_car" route="W_S2" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            #elif route_straight == 4:
-                                #print('    <vehicle id="W_W3_%i" type="standard_car" route="W_W3" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 4:
-                                print('    <vehicle id="W_N2_%i" type="standard_car" route="W_N2" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 5:
-                                print('    <vehicle id="W_N6_%i" type="standard_car" route="W_N6" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            else:
-                                print('    <vehicle id="W_S8_%i" type="standard_car" route="W_S8" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                        else:
-                            route_straight = np.random.randint(1, 8)
-                            if route_straight == 1:
-                                print('    <vehicle id="E_W_%i" type="standard_car" route="E_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 2:
-                                print('    <vehicle id="E_N7_%i" type="standard_car" route="E_N7" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 3:
-                                print('    <vehicle id="E_N2_%i" type="standard_car" route="E_N2" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 4:
-                                print('    <vehicle id="E_E8_%i" type="standard_car" route="E_E8" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 5:
-                                print('    <vehicle id="E_S2_%i" type="standard_car" route="E_S2" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            elif route_straight == 6:
-                                print('    <vehicle id="E_S0_%i" type="standard_car" route="E_S0" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            else:
-                                print('    <vehicle id="E_N3_%i" type="standard_car" route="E_N3" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                    if arterial_routes < self._circular_prob:  # Artéria circular (EG ou VV)
+                        eg_or_vv = np.random.uniform()
+                        if eg_or_vv < 0.742:  # Av. Elias Garcia (74.2% do horizontal)
+                            west_east_routes = np.random.uniform()
+                            if west_east_routes < 0.447:  # Oeste -> Este (44.7%)
+                                route_straight = np.random.randint(1, 6)
+                                if route_straight == 1:
+                                    print('    <vehicle id="EG_W_recto_%i" type="standard_car" route="EG_W_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 2:
+                                    print('    <vehicle id="EG_W_MT_S_%i" type="standard_car" route="EG_W_MT_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="EG_W_MT_N_%i" type="standard_car" route="EG_W_MT_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="EG_W_510_S_%i" type="standard_car" route="EG_W_510_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="EG_W_510_N_%i" type="standard_car" route="EG_W_510_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                            else:  # Este -> Oeste (55.3%)
+                                route_straight = np.random.randint(1, 6)
+                                if route_straight == 1:
+                                    print('    <vehicle id="EG_E_recto_%i" type="standard_car" route="EG_E_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 2:
+                                    print('    <vehicle id="EG_E_510_S_%i" type="standard_car" route="EG_E_510_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="EG_E_510_N_%i" type="standard_car" route="EG_E_510_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="EG_E_MT_S_%i" type="standard_car" route="EG_E_MT_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="EG_E_MT_N_%i" type="standard_car" route="EG_E_MT_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                        else:  # Av. Visconde de Valmor (25.8% do horizontal)
+                            west_east_routes = np.random.uniform()
+                            if west_east_routes < 0.519:  # Oeste -> Este (51.9%)
+                                route_straight = np.random.randint(1, 6)
+                                if route_straight == 1:
+                                    print('    <vehicle id="VV_W_recto_%i" type="standard_car" route="VV_W_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 2:
+                                    print('    <vehicle id="VV_W_MT_N_%i" type="standard_car" route="VV_W_MT_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="VV_W_MT_S_%i" type="standard_car" route="VV_W_MT_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="VV_W_510_S_%i" type="standard_car" route="VV_W_510_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="VV_W_510_N_%i" type="standard_car" route="VV_W_510_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                            else:  # Este -> Oeste (48.1%)
+                                route_straight = np.random.randint(1, 6)
+                                if route_straight == 1:
+                                    print('    <vehicle id="VV_E_recto_%i" type="standard_car" route="VV_E_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 2:
+                                    print('    <vehicle id="VV_E_510_S_%i" type="standard_car" route="VV_E_510_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="VV_E_510_N_%i" type="standard_car" route="VV_E_510_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="VV_E_MT_S_%i" type="standard_car" route="VV_E_MT_S" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="VV_E_MT_N_%i" type="standard_car" route="VV_E_MT_N" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
 
-                    else: #artéria radial
-                        cell = np.random.uniform()
-                        if cell < 0.80: #célula 1
+                    else:  # Artéria radial (MT ou 510)
+                        mt_or_510 = np.random.uniform()
+                        if mt_or_510 < 0.374:  # Av. Marquês de Tomar (37.4% do vertical)
                             in_out_priority = np.random.uniform()
-                            if in_out_priority < self._in_out_prob: #priority out
-                                route_straight = np.random.randint(1, 3)
+                            if in_out_priority < 0.417:  # Norte -> Sul (41.7%)
+                                route_straight = np.random.randint(1, 6)
                                 if route_straight == 1:
-                                    print('    <vehicle id="S4_N3_%i" type="standard_car" route="S4_N3" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                    print('    <vehicle id="MT_N_recto_%i" type="standard_car" route="MT_N_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
                                 elif route_straight == 2:
-                                    print('    <vehicle id="S4_E3_%i" type="standard_car" route="S4_E3" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                                # elif route_straight == 3:
-                                #     print('    <vehicle id="S4_W0_%i" type="standard_car" route="S4_W0" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            else: #priority in
-                                route_straight = np.random.randint(1, 4)
+                                    print('    <vehicle id="MT_N_EG_E_%i" type="standard_car" route="MT_N_EG_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="MT_N_EG_W_%i" type="standard_car" route="MT_N_EG_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="MT_N_VV_E_%i" type="standard_car" route="MT_N_VV_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="MT_N_VV_W_%i" type="standard_car" route="MT_N_VV_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                            else:  # Sul -> Norte (58.3%)
+                                route_straight = np.random.randint(1, 6)
                                 if route_straight == 1:
-                                    print('    <vehicle id="N3_S4_%i" type="standard_car" route="N3_S4" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                    print('    <vehicle id="MT_S_recto_%i" type="standard_car" route="MT_S_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
                                 elif route_straight == 2:
-                                    print('    <vehicle id="N3_E4_%i" type="standard_car" route="N3_E4" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                                if route_straight == 3:
-                                    print('    <vehicle id="N3_W3_%i" type="standard_car" route="N3_W3" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                        else:
+                                    print('    <vehicle id="MT_S_VV_E_%i" type="standard_car" route="MT_S_VV_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="MT_S_VV_W_%i" type="standard_car" route="MT_S_VV_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="MT_S_EG_E_%i" type="standard_car" route="MT_S_EG_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="MT_S_EG_W_%i" type="standard_car" route="MT_S_EG_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                        else:  # Av. 5 de Outubro (62.6% do vertical)
                             in_out_priority = np.random.uniform()
-                            if in_out_priority < self._in_out_prob:  # priority out
-                                route_straight = np.random.randint(1, 3)
+                            if in_out_priority < 0.466:  # Norte -> Sul (46.6%)
+                                route_straight = np.random.randint(1, 6)
                                 if route_straight == 1:
-                                    print('    <vehicle id="S8_N7_%i" type="standard_car" route="S8_N7" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                    print('    <vehicle id="C510_N_recto_%i" type="standard_car" route="C510_N_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
                                 elif route_straight == 2:
-                                    print('    <vehicle id="S8_E7_%i" type="standard_car" route="S8_W7" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                                # elif route_straight == 3:
-                                #     print('    <vehicle id="S8_N2_%i" type="standard_car" route="S8_N2" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                            else:  # priority in
-                                route_straight = np.random.randint(1, 3)
+                                    print('    <vehicle id="C510_N_EG_W_%i" type="standard_car" route="C510_N_EG_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="C510_N_EG_E_%i" type="standard_car" route="C510_N_EG_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="C510_N_VV_W_%i" type="standard_car" route="C510_N_VV_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="C510_N_VV_E_%i" type="standard_car" route="C510_N_VV_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                            else:  # Sul -> Norte (53.4%)
+                                route_straight = np.random.randint(1, 6)
                                 if route_straight == 1:
-                                    print('    <vehicle id="N7_S8_%i" type="standard_car" route="N7_S8" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
-                                # elif route_straight == 2:
-                                #    print('    <vehicle id="N7_E6_%i" type="standard_car" route="N7_E6" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                    print('    <vehicle id="C510_S_recto_%i" type="standard_car" route="C510_S_recto" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
                                 elif route_straight == 2:
-                                    print('    <vehicle id="N7_E8_%i" type="standard_car" route="N7_E8" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                    print('    <vehicle id="C510_S_VV_W_%i" type="standard_car" route="C510_S_VV_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 3:
+                                    print('    <vehicle id="C510_S_VV_E_%i" type="standard_car" route="C510_S_VV_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                elif route_straight == 4:
+                                    print('    <vehicle id="C510_S_EG_W_%i" type="standard_car" route="C510_S_EG_W" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                                else:
+                                    print('    <vehicle id="C510_S_EG_E_%i" type="standard_car" route="C510_S_EG_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
 
-                else:
-                    route_turn = np.random.randint(1, 33)  # choose random source & destination
+                else:  # viragem local (25% dos carros) — percursos curtos dentro da rede
+                    route_turn = np.random.randint(1, 17)
                     if route_turn == 1:
-                        print('    <vehicle id="N0_S0_%i" type="standard_car" route="N0_S0" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
+                        print('    <vehicle id="MT_N_EG_E_%i" type="standard_car" route="MT_N_EG_E" depart="%s" departLane="best" />' % (car_counter, step), file=routes)
                     elif route_turn == 2:
-                        print('    <vehicle id="S0_N0_%i" type="standard_car" route="S0_N0" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="MT_N_EG_W_%i" type="standard_car" route="MT_N_EG_W" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 3:
-                        print('    <vehicle id="N6_S6_%i" type="standard_car" route="N6_S6" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="MT_S_VV_E_%i" type="standard_car" route="MT_S_VV_E" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 4:
-                        print('    <vehicle id="S6_N6_%i" type="standard_car" route="S6_N6" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="MT_S_VV_W_%i" type="standard_car" route="MT_S_VV_W" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 5:
-                        print('    <vehicle id="N2_S2_%i" type="standard_car" route="N2_S2" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="EG_W_MT_S_%i" type="standard_car" route="EG_W_MT_S" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 6:
-                        print('    <vehicle id="S2_N2_%i" type="standard_car" route="S2_N2" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="EG_W_MT_N_%i" type="standard_car" route="EG_W_MT_N" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 7:
-                        print('    <vehicle id="W3_E3_%i" type="standard_car" route="W3_E3" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="EG_E_510_S_%i" type="standard_car" route="EG_E_510_S" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 8:
-                        print('    <vehicle id="E3_W3_%i" type="standard_car" route="E3_W3" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="EG_E_510_N_%i" type="standard_car" route="EG_E_510_N" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 9:
-                        print('    <vehicle id="W4_E4_%i" type="standard_car" route="W4_E4" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="VV_W_MT_N_%i" type="standard_car" route="VV_W_MT_N" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 10:
-                        print('    <vehicle id="E4_W4_%i" type="standard_car" route="E4_W4" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="VV_W_MT_S_%i" type="standard_car" route="VV_W_MT_S" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 11:
-                        print('    <vehicle id="W7_E7_%i" type="standard_car" route="W7_E7" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="VV_E_510_S_%i" type="standard_car" route="VV_E_510_S" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 12:
-                        print('    <vehicle id="E7_W7_%i" type="standard_car" route="E7_W7" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="VV_E_510_N_%i" type="standard_car" route="VV_E_510_N" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 13:
-                        print('    <vehicle id="W8_E8_%i" type="standard_car" route="W8_E8" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="C510_N_EG_W_%i" type="standard_car" route="C510_N_EG_W" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     elif route_turn == 14:
-                        print('    <vehicle id="E8_W8_%i" type="standard_car" route="E8_W8" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-
-                    elif route_turn == 16:
-                        print('    <vehicle id="N0_L_%i" type="standard_car" route="N0_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 17:
-                        print('    <vehicle id="S0_L_%i" type="standard_car" route="S0_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 18:
-                        print('    <vehicle id="W0_L_%i" type="standard_car" route="W0_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 19:
-                        print('    <vehicle id="S6_L_%i" type="standard_car" route="S6_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 20:
-                        print('    <vehicle id="N6_L_%i" type="standard_car" route="N6_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 21:
-                        print('    <vehicle id="E6_L_%i" type="standard_car" route="E6_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 22:
-                        print('    <vehicle id="W3_L_%i" type="standard_car" route="W3_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 23:
-                        print('    <vehicle id="E3_L_%i" type="standard_car" route="E3_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 24:
-                        print('    <vehicle id="N3_L_%i" type="standard_car" route="N3_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 25:
-                        print('    <vehicle id="S4_L_%i" type="standard_car" route="S4_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 26:
-                        print('    <vehicle id="E4_L_%i" type="standard_car" route="E4_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 27:
-                        print('    <vehicle id="W4_L_%i" type="standard_car" route="W4_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 28:
-                        print('    <vehicle id="S8_L_%i" type="standard_car" route="S8_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 29:
-                        print('    <vehicle id="E8_L_%i" type="standard_car" route="E8_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 30:
-                        print('    <vehicle id="W8_L_%i" type="standard_car" route="W8_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-                    elif route_turn == 31:
-                        print('    <vehicle id="S2_L_%i" type="standard_car" route="S2_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                        print('    <vehicle id="C510_N_EG_E_%i" type="standard_car" route="C510_N_EG_E" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
+                    elif route_turn == 15:
+                        print('    <vehicle id="C510_S_VV_W_%i" type="standard_car" route="C510_S_VV_W" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
                     else:
-                        print('    <vehicle id="N2_L_%i" type="standard_car" route="N2_L" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
-            print("</routes>", file=routes)
+                        print('    <vehicle id="C510_S_VV_E_%i" type="standard_car" route="C510_S_VV_E" depart="%s" departLane="best"/>' % (car_counter, step), file=routes)
 
+            print("</routes>", file=routes)
