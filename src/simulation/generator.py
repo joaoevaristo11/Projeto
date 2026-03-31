@@ -57,60 +57,57 @@ class TrafficGenerator:
         car_gen_steps = np.rint(car_gen_steps)
 
         # produce the file for cars generation, one car per line
-        with open("sumo/episode_routes.rou.xml", "w") as routes:
-            print("""<routes>
+        with open("sumo/episode_routes.rou.xml", "w", encoding="utf-8") as routes:
+            print("""<?xml version="1.0" encoding="UTF-8"?>
+<routes>
             <vType accel="1.0" decel="4.5" id="standard_car" length="5.0" minGap="2.5" maxSpeed="13.9" depart_speed = "13.9" sigma="0.5" />
 
-            <!-- Artéria circular horizontal: Av. Elias Garcia (EG) -->
-            <!-- Oeste -> Este -->
+            <!-- Av. Elias Garcia (EG) - West to East -->
             <route id="EG_W_recto"  edges="EG_WE_1 EG_WE_2 EG_WE_3"/>
             <route id="EG_W_MT_S"   edges="EG_WE_1 MT_NS_2 MT_NS_3"/>
             <route id="EG_W_MT_N"   edges="EG_WE_1 MT_SN_3"/>
             <route id="EG_W_510_S"  edges="EG_WE_1 EG_WE_2 510_NS_2 510_NS_3"/>
             <route id="EG_W_510_N"  edges="EG_WE_1 EG_WE_2 510_SN_3"/>
-            <!-- Este -> Oeste -->
+            <!-- Av. Elias Garcia (EG) - East to West -->
             <route id="EG_E_recto"  edges="EG_EW_1 EG_EW_2 EG_EW_3"/>
             <route id="EG_E_510_S"  edges="EG_EW_1 510_NS_2 510_NS_3"/>
             <route id="EG_E_510_N"  edges="EG_EW_1 510_SN_3"/>
             <route id="EG_E_MT_S"   edges="EG_EW_1 EG_EW_2 MT_NS_2 MT_NS_3"/>
             <route id="EG_E_MT_N"   edges="EG_EW_1 EG_EW_2 MT_SN_3"/>
 
-            <!-- Artéria circular horizontal: Av. Visconde de Valmor (VV) -->
-            <!-- Oeste -> Este -->
+            <!-- Av. Visconde de Valmor (VV) - West to East -->
             <route id="VV_W_recto"  edges="VV_WE_1 VV_WE_2 VV_WE_3"/>
             <route id="VV_W_MT_N"   edges="VV_WE_1 MT_SN_2 MT_SN_3"/>
             <route id="VV_W_MT_S"   edges="VV_WE_1 MT_NS_3"/>
             <route id="VV_W_510_S"  edges="VV_WE_1 VV_WE_2 510_NS_3"/>
             <route id="VV_W_510_N"  edges="VV_WE_1 VV_WE_2 510_SN_2 510_SN_3"/>
-            <!-- Este -> Oeste -->
+            <!-- Av. Visconde de Valmor (VV) - East to West -->
             <route id="VV_E_recto"  edges="VV_EW_1 VV_EW_2 VV_EW_3"/>
             <route id="VV_E_510_S"  edges="VV_EW_1 510_NS_3"/>
             <route id="VV_E_510_N"  edges="VV_EW_1 510_SN_2 510_SN_3"/>
             <route id="VV_E_MT_S"   edges="VV_EW_1 VV_EW_2 MT_NS_3"/>
             <route id="VV_E_MT_N"   edges="VV_EW_1 VV_EW_2 MT_SN_2 MT_SN_3"/>
 
-            <!-- Artéria radial vertical: Av. Marquês de Tomar (MT) -->
-            <!-- Norte -> Sul -->
+            <!-- Av. Marques de Tomar (MT) - North to South -->
             <route id="MT_N_recto"  edges="MT_NS_1 MT_NS_2 MT_NS_3"/>
             <route id="MT_N_EG_E"   edges="MT_NS_1 EG_WE_2 EG_WE_3"/>
             <route id="MT_N_EG_W"   edges="MT_NS_1 EG_EW_3"/>
             <route id="MT_N_VV_E"   edges="MT_NS_1 MT_NS_2 VV_WE_2 VV_WE_3"/>
             <route id="MT_N_VV_W"   edges="MT_NS_1 MT_NS_2 VV_EW_3"/>
-            <!-- Sul -> Norte -->
+            <!-- Av. Marques de Tomar (MT) - South to North -->
             <route id="MT_S_recto"  edges="MT_SN_1 MT_SN_2 MT_SN_3"/>
             <route id="MT_S_VV_E"   edges="MT_SN_1 VV_WE_2 VV_WE_3"/>
             <route id="MT_S_VV_W"   edges="MT_SN_1 VV_EW_3"/>
             <route id="MT_S_EG_E"   edges="MT_SN_1 MT_SN_2 EG_WE_2 EG_WE_3"/>
             <route id="MT_S_EG_W"   edges="MT_SN_1 MT_SN_2 EG_EW_3"/>
 
-            <!-- Artéria radial vertical: Av. 5 de Outubro (510) -->
-            <!-- Norte -> Sul -->
+            <!-- Av. 5 de Outubro (510) - North to South -->
             <route id="C510_N_recto" edges="510_NS_1 510_NS_2 510_NS_3"/>
             <route id="C510_N_EG_W"  edges="510_NS_1 EG_EW_2 EG_EW_3"/>
             <route id="C510_N_EG_E"  edges="510_NS_1 EG_WE_3"/>
             <route id="C510_N_VV_W"  edges="510_NS_1 510_NS_2 VV_EW_2 VV_EW_3"/>
             <route id="C510_N_VV_E"  edges="510_NS_1 510_NS_2 VV_WE_3"/>
-            <!-- Sul -> Norte -->
+            <!-- Av. 5 de Outubro (510) - South to North -->
             <route id="C510_S_recto" edges="510_SN_1 510_SN_2 510_SN_3"/>
             <route id="C510_S_VV_W"  edges="510_SN_1 VV_EW_2 VV_EW_3"/>
             <route id="C510_S_VV_E"  edges="510_SN_1 VV_WE_3"/>

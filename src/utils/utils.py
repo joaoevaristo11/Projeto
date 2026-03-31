@@ -63,21 +63,21 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
     """
     Configure various parameters of SUMO
     """
-    # sumo things - we need to import python modules from the $SUMO_HOME/tools directory
     if 'SUMO_HOME' in os.environ:
         tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
         sys.path.append(tools)
     else:
         sys.exit("please declare environment variable 'SUMO_HOME'")
 
-    # setting the cmd mode or the visual mode    
     if gui == False:
         sumoBinary = checkBinary('sumo')
     else:
         sumoBinary = checkBinary('sumo-gui')
- 
-    # setting the cmd command to run sumo at simulation time
-    sumo_cmd = [sumoBinary, "-c", os.path.join('sumo', sumocfg_file_name), "--no-step-log", "true", "--waiting-time-memory", str(max_steps)]
+
+    sumo_cmd = [sumoBinary, "-c", os.path.join('sumo', sumocfg_file_name),
+                "--no-step-log", "true",
+                "--waiting-time-memory", str(max_steps),
+                "--ignore-route-errors", "true"]
 
     return sumo_cmd
 
@@ -98,7 +98,7 @@ def set_train_path(models_path_name):
 
     data_path = os.path.join(models_path, 'model_'+new_version, '')
     os.makedirs(os.path.dirname(data_path), exist_ok=True)
-    return data_path 
+    return data_path
 
 
 def set_test_path(models_path_name, model_n, episode_seed):
@@ -107,9 +107,9 @@ def set_test_path(models_path_name, model_n, episode_seed):
     """
     model_folder_path = os.path.join(os.getcwd(), models_path_name, 'model_'+str(model_n), '')
 
-    if os.path.isdir(model_folder_path):    
+    if os.path.isdir(model_folder_path):
         plot_path = os.path.join(model_folder_path, 'test_' + str(episode_seed), '')
         os.makedirs(os.path.dirname(plot_path), exist_ok=True)
         return model_folder_path, plot_path
-    else: 
+    else:
         sys.exit('The model number specified does not exist in the models folder')

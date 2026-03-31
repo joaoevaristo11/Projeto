@@ -1,5 +1,5 @@
 <additionals>
-    <tlLogic id="J1" type="static" programID="0" offset="0">
+    <tlLogic id="J1" type="static" programID="1" offset="0">
         <phase duration="36" state="rrrgGgrrrgGgGrGr"/>
         <phase duration="5"  state="rrryyyrrryyyrrrr"/>
         <phase duration="3"  state="rrrrrrrrrrrrrrrr"/>
@@ -7,7 +7,7 @@
         <phase duration="36" state="yyyrrryyyrrrrrrr"/>
         <phase duration="5"  state="rrrrrrrrrrrrrrrr"/>
     </tlLogic>
-    <tlLogic id="J2" type="static" programID="0" offset="0">
+    <tlLogic id="J2" type="static" programID="1" offset="0">
         <phase duration="37" state="rrrgGGrrrgGGGrGr"/>
         <phase duration="3"  state="rrryyyrrryyyrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrr"/>
@@ -15,7 +15,7 @@
         <phase duration="5"  state="yyyrrryyyrrrrrrr"/>
         <phase duration="3"  state="rrrrrrrrrrrrrrrr"/>
     </tlLogic>
-    <tlLogic id="J3" type="static" programID="0" offset="0">
+    <tlLogic id="J3" type="static" programID="1" offset="0">
         <phase duration="37" state="rrrgGgrrrgGgGrGr"/>
         <phase duration="3"  state="rrryyyrrryyyrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrr"/>
@@ -23,7 +23,7 @@
         <phase duration="3"  state="yyyrrryyyrrrrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrr"/>
     </tlLogic>
-    <tlLogic id="J4" type="static" programID="0" offset="0">
+    <tlLogic id="J4" type="static" programID="1" offset="0">
         <phase duration="37" state="rrrgGGrrrgGGGrGr"/>
         <phase duration="3"  state="rrryyyrrryyyrrrr"/>
         <phase duration="2"  state="rrrrrrrrrrrrrrrr"/>
