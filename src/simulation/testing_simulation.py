@@ -8,15 +8,8 @@ import src.simulation.intersection_manager as intersection_manager
 import src.algorithms.sapa as sapa
 
 PHASE_TO_ACTION = {
-    0: 1,   # NS_FD
-    2: 2,   # N_ALL
-    4: 3,   # S_ALL
-    6: 4,   # NS_Left
-    8: 5,   # WE_FD
-    10: 6,  # W_ALL
-    12: 7,  # E_ALL
-    14: 8,  # WE_LEFT
-    32: 9   # Pedestrians
+    0: 1,   # NS green
+    3: 2,   # EW green
 }
 
 # Edges externos de entrada da rede — usados para contagem de volumes
@@ -53,6 +46,9 @@ class Simulation:
         self._n_agents = n_agents
 
         self.intersections = intersection_manager.create_intersections(self._num_states)
+        for C in self.intersections.values():
+            C.green_duration = self._green_duration
+            C.yellow_duration = self._yellow_duration
         self.routes = intersection_manager.create_routes()
         self.waiting_ped = intersection_manager.create_waiting_zones()
         self.tl_names = intersection_manager.create_tl_names()
@@ -95,6 +91,9 @@ class Simulation:
         print("Simulating...")
 
         while self._step < self._max_steps:
+
+            if self._step % 300 == 0:
+                print(f"[testing] step {self._step}/{self._max_steps}")
 
             for idx, C in self.intersections.items():
                 if C.dur == 0 or C.dur == -1:
@@ -149,14 +148,14 @@ class Simulation:
     def _time_extension(self, C):
         """The Average Time given to each Phase by the SAPA block in each intersection"""
         if self._step % 300 == 0:
-            for phase_id in range(9):
+            for phase_id in range(self._num_actions):
                 if C.n_times_active[phase_id] > 0:
                     avg_duration = C.phase_duration[phase_id] / C.n_times_active[phase_id]
                 else:
                     avg_duration = 0
                 C.phase_durations[phase_id + 1].append(avg_duration)
         else:
-            for phase_id in range(9):
+            for phase_id in range(self._num_actions):
                 if C.n_times_active[phase_id] > 0:
                     C.phase_extension_1_hour[phase_id + 1] = C.phase_duration[phase_id] / C.n_times_active[phase_id]
                 else:

@@ -19,7 +19,7 @@ class Intersection:
         self.dur = -1
         self.action = -1
         self.yellow = 0
-        self.green_duration = 8
+        self.green_duration = 10
         self.yellow_duration = 4
         self.num_states = num_states
 
@@ -81,8 +81,8 @@ class Intersection:
             return self.yellow_duration, 1
         else:
             self.set_green_phase(action, name)
-            dur = sapa.sapa_block(idx, routes, map_env, action)
-            return dur, 0
+           #dur = sapa.sapa_block(idx, routes, map_env, action)
+            return self.green_duration, 0
 
     def set_green_phase(self, action_number, TL_NAME):
         if action_number == 0:
@@ -117,14 +117,15 @@ class Intersection:
             pos = list(route).index(edge_id)
         except ValueError:
             return -1
-        n = len(route)
-        if n == 4:
-            # [N, W, S, E] -> grupos 2, 0, 6, 4
-            return {0: 2, 1: 0, 2: 6, 3: 4}.get(pos, -1)
-        elif n == 6:
-            # [N1, N2, W, E, S1, S2] -> grupos 2, 3, 0, 4, 6, 7
-            return {0: 2, 1: 3, 2: 0, 3: 4, 4: 6, 5: 7}.get(pos, -1)
-        return pos if pos < 8 else -1
+
+        # Convenção canónica de entrada:
+        # - 4 entradas: [N, O, S, E]
+        # - 6 entradas: [N1, N2, O, S1, S2, E]
+        # O mapeamento mantém os mesmos grupos cardinais no estado.
+        if len(route) == 6:
+            return {0: 2, 1: 2, 2: 0, 3: 6, 4: 6, 5: 4}.get(pos, -1)
+
+        return {0: 2, 1: 0, 2: 6, 3: 4}.get(pos, -1)
 
     def action_encode(self, state, action):
         phases = [0] * NUM_ACTIONS

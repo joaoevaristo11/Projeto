@@ -6,7 +6,7 @@ from openpyxl.utils import column_index_from_string
 from openpyxl.chart.series import SeriesLabel
 
 # CONFIGURAÇÕES
-models = {'Estratégia 4': r'E:\GGALVAO\BOLSA\Trabalhos\2_NN_2_cells_DQN\TLCS\models\model_8'}
+models = {'Estratégia 4': r'E:\GGALVAO\BOLSA\Trabalhos\2_NN_2_cells_DQN\TLCS\models\model_8'} #meter model1
 
 test_dirs = ['test_5000', 'test_10000', 'test_10003']
 excel_file = r'E:\GGALVAO\BOLSA\Trabalhos\2_NN_2_cells_DQN\TLCS\models\model_8\valores_treino_teste_5.xlsx'

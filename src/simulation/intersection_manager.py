@@ -40,23 +40,23 @@ route_TL1 = [
 
 route_TL2 = [
     '510_NS_1',  # Av. 5 de Outubro Norte→Sul, segmento 1 (externo Norte, 2 faixas)
-    'EG_EW_1',   # Av. Elias Garcia Este→Oeste, segmento 1 (externo Este)
     'EG_WE_2',   # Av. Elias Garcia Oeste→Este, segmento 2 (vem de J1)
     '510_SN_2',  # Av. 5 de Outubro Sul→Norte, segmento 2 (vem de J4, 2 faixas)
+    'EG_EW_1',   # Av. Elias Garcia Este→Oeste, segmento 1 (externo Este)
 ]
 
 route_TL3 = [
     'MT_NS_2',   # Av. Marquês de Tomar Norte→Sul, segmento 2 (vem de J1)
     'VV_WE_1',   # Av. Visconde de Valmor Oeste→Este, segmento 1 (externo Oeste)
-    'VV_EW_2',   # Av. Visconde de Valmor Este→Oeste, segmento 2 (vem de J4)
     'MT_SN_1',   # Av. Marquês de Tomar Sul→Norte, segmento 1 (externo Sul)
+    'VV_EW_2',   # Av. Visconde de Valmor Este→Oeste, segmento 2 (vem de J4)
 ]
 
 route_TL4 = [
     '510_NS_2',  # Av. 5 de Outubro Norte→Sul, segmento 2 (vem de J2, 2 faixas)
-    'VV_EW_1',   # Av. Visconde de Valmor Este→Oeste, segmento 1 (externo Este)
     'VV_WE_2',   # Av. Visconde de Valmor Oeste→Este, segmento 2 (vem de J3)
     '510_SN_1',  # Av. 5 de Outubro Sul→Norte, segmento 1 (externo Sul, 2 faixas)
+    'VV_EW_1',   # Av. Visconde de Valmor Este→Oeste, segmento 1 (externo Este)
 ]
 
 # ============================================================================
@@ -92,7 +92,7 @@ def create_intersections(num_states):
 
 
 def create_routes():
-    """Retorna as faixas (lanes) de entrada para cada interseção."""
+    """Retorna as faixas (lanes) de entrada para cada interseção em ordem N, O, S, E."""
     return {
         1: route_TL1,  # 4 lanes que chegam a J1
         2: route_TL2,  # 6 lanes que chegam a J2
@@ -122,12 +122,12 @@ def create_tl_names():
 
 
 def create_incoming_routes():
-    """Retorna os edges (sem sufixo de faixa) que chegam a cada interseção."""
+    """Retorna os edges (sem sufixo de faixa) que chegam a cada interseção em ordem N, O, S, E."""
     return {
         1: ["MT_NS_1", "EG_WE_1", "MT_SN_2", "EG_EW_2"],      # J1: MT Norte, EG Oeste, MT de J3, EG de J2
-        2: ["510_NS_1", "EG_EW_1", "EG_WE_2", "510_SN_2"],     # J2: 510 Norte, EG Este, EG de J1, 510 de J4
-        3: ["MT_NS_2", "VV_WE_1", "VV_EW_2", "MT_SN_1"],       # J3: MT de J1, VV Oeste, VV de J4, MT Sul
-        4: ["510_NS_2", "VV_EW_1", "VV_WE_2", "510_SN_1"],     # J4: 510 de J2, VV Este, VV de J3, 510 Sul
+        2: ["510_NS_1", "EG_WE_2", "510_SN_2", "EG_EW_1"],     # J2: 510 Norte, EG de J1 (Oeste), 510 de J4 (Sul), EG Este
+        3: ["MT_NS_2", "VV_WE_1", "MT_SN_1", "VV_EW_2"],       # J3: MT de J1 (Norte), VV Oeste, MT Sul, VV de J4 (Este)
+        4: ["510_NS_2", "VV_WE_2", "510_SN_1", "VV_EW_1"],     # J4: 510 de J2 (Norte), VV de J3 (Oeste), 510 Sul, VV Este
     }
 
 
@@ -146,11 +146,6 @@ def create_110_132_routes():
 def create_map_environment_():
     """
     Define a topologia da rede: quais interseções estão conectadas entre si.
-    
-    Estrutura real:
-      J1 (NO) ── J2 (NE)
-       |              |
-      J3 (SO) ── J4 (SE)
     """
     return {
         1: [1, 2, 3],  # J1 ligado a J2 (Este, via EG) e J3 (Sul, via MT)

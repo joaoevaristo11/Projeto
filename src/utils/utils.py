@@ -77,7 +77,9 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
     sumo_cmd = [sumoBinary, "-c", os.path.join('sumo', sumocfg_file_name),
                 "--no-step-log", "true",
                 "--waiting-time-memory", str(max_steps),
-                "--ignore-route-errors", "true"]
+                "--ignore-route-errors", "true",
+                "--start",
+                "--quit-on-end"]
 
     return sumo_cmd
 

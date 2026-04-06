@@ -38,6 +38,9 @@ class Simulation:
         self._Pped = 0.50
 
         self.intersections = intersection_manager.create_intersections(self._num_states)
+        for C in self.intersections.values():
+            C.green_duration = self._green_duration
+            C.yellow_duration = self._yellow_duration
         self.routes = intersection_manager.create_routes()
         self.waiting_ped = intersection_manager.create_waiting_zones()
         self.tl_names = intersection_manager.create_tl_names()

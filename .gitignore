@@ -302,13 +302,12 @@ models/
 sumo/episode_routes.rou.xml
 sumo/pedestrian_routes.rou.xml
 
-# Resultados e outputs (gerados durante treino/teste)
-*.txt
-*.png
-*.pdf
-*.xlsx
-!requirements.txt
-!README.md
+# Resultados e outputs locais (opcional)
+analysis/output/
+analysis/*.txt
+analysis/*.png
+analysis/*.pdf
+analysis/*.xlsx
 
 # IDE configs
 /.idea/misc.xml

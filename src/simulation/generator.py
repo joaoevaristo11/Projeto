@@ -114,7 +114,7 @@ class TrafficGenerator:
             <route id="C510_S_EG_W"  edges="510_SN_1 510_SN_2 EG_EW_2 EG_EW_3"/>
             <route id="C510_S_EG_E"  edges="510_SN_1 510_SN_2 EG_WE_3"/>""", file=routes)
 
-            # Probabilidades derivadas dos dados reais (hora de ponta, zona IMT):
+            # Probabilidades:
             #
             # Horizontal (EG vs VV): EG=74.2%, VV=25.8%  → eg_prob = 0.742
             # Dentro EG: OE=44.7%, EO=55.3%              → eg_west_east = 0.447
