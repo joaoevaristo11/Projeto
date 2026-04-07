@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import os
+import argparse
 from shutil import copyfile
 
 from src.simulation.testing_simulation import Simulation
@@ -13,8 +14,11 @@ from src.utils.utils import import_test_configuration, set_sumo, set_test_path
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Test trained DDQN models')
+    parser.add_argument('--config', type=str, default='config/testing_settings.ini', help='Path to configuration file')
+    args = parser.parse_args()
 
-    config = import_test_configuration(config_file='config/testing_settings.ini')
+    config = import_test_configuration(config_file=args.config)
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     model_path, plot_path = set_test_path(config['models_path_name'], config['model_to_test'], config['episode_seed'])
     network = config['network']

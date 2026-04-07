@@ -4,6 +4,7 @@ import tensorflow as tf
 import os
 import datetime
 import warnings
+import argparse
 from shutil import copyfile
 warnings.filterwarnings("ignore")
 from src.simulation.training_simulation import Simulation
@@ -15,7 +16,11 @@ from src.utils.visualization import Visualization
 from src.utils.utils import import_train_configuration, set_sumo, set_train_path
 
 if __name__ == "__main__":
-    config = import_train_configuration(config_file='config/training_settings.ini')
+    parser = argparse.ArgumentParser(description='Train DDQN traffic control models')
+    parser.add_argument('--config', type=str, default='config/training_settings.ini', help='Path to configuration file')
+    args = parser.parse_args()
+    
+    config = import_train_configuration(config_file=args.config)
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     path = set_train_path(config['models_path_name'])
 
