@@ -19,7 +19,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train DDQN traffic control models')
     parser.add_argument('--config', type=str, default='config/training_settings.ini', help='Path to configuration file')
     args = parser.parse_args()
-    
+
     config = import_train_configuration(config_file=args.config)
     sumo_cmd = set_sumo(config['gui'], config['sumocfg_file_name'], config['max_steps'])
     path = set_train_path(config['models_path_name'])
@@ -47,15 +47,9 @@ if __name__ == "__main__":
     )
 
     # Memória partilhada por J1 e J3
-    Memory_Cell_1 = Memory(
-        config['memory_size_max'],
-        config['memory_size_min']
-    )
+    Memory_Cell_1 = Memory(config['memory_size_max'], config['memory_size_min'])
     # Memória partilhada por J2 e J4
-    Memory_Cell_2 = Memory(
-        config['memory_size_max'],
-        config['memory_size_min']
-    )
+    Memory_Cell_2 = Memory(config['memory_size_max'], config['memory_size_min'])
 
     TrafficGen = TrafficGenerator(
         config['max_steps'],
@@ -66,10 +60,7 @@ if __name__ == "__main__":
         config['max_steps'],
         config['n_peds_generated']
     )
-    Visualization = Visualization(
-        path,
-        dpi=96
-    )
+    Visualization = Visualization(path, dpi=96)
 
     Simulation = Simulation(
         Model_Cell_1,
@@ -81,33 +72,33 @@ if __name__ == "__main__":
         sumo_cmd,
         config['gamma'],
         config['max_steps'],
-        config['green_duration'],
+        # config['green_duration'],  ← removido: a IA decide a duração dinamicamente
         config['yellow_duration'],
         config['num_states'],
         config['num_actions'],
         config['training_epochs']
     )
 
-    episode = 1
-    warm_up_eps = 0
     timestamp_start = datetime.datetime.now()
 
-    while episode < config['total_episodes']:
-        # Warm-up
-        for warm_up_eps in range(3):
-            simulation_time, training_time = Simulation.run(warm_up_eps, 1.0, 0)
-        # Treino principal
-        for episode in range(1, config['total_episodes'] + 1):
-            print('\n----- Episode', episode, 'of', str(config['total_episodes']))
-            epsilon = 1.0 - (episode / config['total_episodes'])
-            simulation_time, training_time = Simulation.run(episode, epsilon, 1)
-            print('Simulation time:', simulation_time, 's - Training time:', training_time, 's - Total:', round(simulation_time + training_time, 1), 's')
+    # ── Warm-up (3 episódios aleatórios antes do treino) ──────────────────────
+    print("\n----- Warm-up (3 episódios aleatórios)")
+    for warm_up_ep in range(3):
+        Simulation.run(warm_up_ep, epsilon=1.0, train_ON_OFF=0)
+
+    # ── Treino principal ──────────────────────────────────────────────────────
+    for episode in range(1, config['total_episodes'] + 1):
+        print(f'\n----- Episode {episode} of {config["total_episodes"]}')
+        epsilon = 1.0 - (episode / config['total_episodes'])
+        simulation_time, training_time = Simulation.run(episode, epsilon, train_ON_OFF=1)
+        print(f'Simulation time: {simulation_time}s  |  Training time: {training_time}s  '
+              f'|  Total: {round(simulation_time + training_time, 1)}s')
 
     print("\n----- Start time:", timestamp_start)
     print("----- End time:", datetime.datetime.now())
     print("----- Session info saved at:", path)
 
-    # Guardar modelos
+    # ── Guardar modelos ───────────────────────────────────────────────────────
     # Cell_1: J1 e J3 (cruzamentos Av. Marquês de Tomar)
     # Cell_2: J2 e J4 (cruzamentos Av. 5 de Outubro)
     Model_Cell_1.save_model(path, "Trained_Cell_1")
@@ -115,13 +106,25 @@ if __name__ == "__main__":
 
     copyfile(src='config/training_settings.ini', dst=os.path.join(path, 'training_settings.ini'))
 
+    # ── Gráficos de reward ────────────────────────────────────────────────────
     for idx, rewards in Simulation.reward_stores.items():
-        filename = f"Reward_C{idx}"
         Visualization.save_data_and_plot(
             data=rewards,
-            filename=filename,
+            filename=f"Reward_C{idx}",
             xlabel='Episode',
             ylabel=f'Cumulative negative reward of C{idx}'
         )
-    Visualization.save_data_and_plot(data=Simulation.model_loss_cell_1, filename='MSE Loss Cell 1', xlabel='Episode', ylabel='Loss')
-    Visualization.save_data_and_plot(data=Simulation.model_loss_cell_2, filename='MSE Loss Cell 2', xlabel='Episode', ylabel='Loss')
+
+    # ── Gráficos de loss ──────────────────────────────────────────────────────
+    Visualization.save_data_and_plot(
+        data=Simulation.model_loss_cell_1,
+        filename='MSE Loss Cell 1',
+        xlabel='Episode',
+        ylabel='Loss'
+    )
+    Visualization.save_data_and_plot(
+        data=Simulation.model_loss_cell_2,
+        filename='MSE Loss Cell 2',
+        xlabel='Episode',
+        ylabel='Loss'
+    )

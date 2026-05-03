@@ -24,10 +24,10 @@ metrics_phase_time = ['avg_phase_time_1','avg_phase_time_2','avg_phase_time_3','
 metric_lane_volume = ['lane_volume_1']
 
 # ── Reward ─────────────────────────────────────────────────────────────────────
-for i, col in enumerate(metrics_reward, start=1):   # FIX: start=1 → C1..C4
+for i, col in enumerate(metrics_reward, start=1):
     plt.figure()
     plt.plot(excel_1[col], label=name_1)
-    plt.plot(excel_2[col], label=name_2)
+    plt.plot(excel_2[col])
     plt.xlabel('Episodes', fontsize=18)
     plt.ylabel(f'Reward at Intersection C{i}', fontsize=18)
     plt.legend(fontsize=14, loc='lower left')
@@ -47,7 +47,7 @@ for i, col in enumerate(metrics_queue, start=1):
     plt.title(f'Halting Vehicles at Intersection C{i}', fontsize=16)
     plt.legend(fontsize=14, loc='upper right')
     plt.grid(True)
-    plt.ylim(0, 90)
+    plt.ylim(0, 90)  
     plt.tick_params(axis='both', labelsize=16)
     nome_ficheiro = f'comparacao_queue_C{i}.png'
     plt.savefig(os.path.join(diretoria, nome_ficheiro), dpi=300, bbox_inches='tight')
@@ -63,7 +63,7 @@ for i, col in enumerate(metrics_ped, start=1):
     plt.title(f'Halting Pedestrians at Intersection C{i}', fontsize=18)
     plt.legend(fontsize=14, loc='upper right')
     plt.grid(True)
-    plt.ylim(0, 40)
+    plt.ylim(0, 15)  # era 40
     plt.tick_params(axis='both', labelsize=16)
     nome_ficheiro = f'comparacao_halt_ped_C{i}.png'
     plt.savefig(os.path.join(diretoria, nome_ficheiro), dpi=300, bbox_inches='tight')
@@ -79,6 +79,7 @@ for i, col in enumerate(metrics_speed, start=1):
     plt.title(f'Average Speed in C{i}')
     plt.legend(fontsize=14, loc='upper right')
     plt.grid(True)
+    plt.ylim(0, 14)  # adicionado
     plt.tick_params(axis='both', labelsize=16)
     nome_ficheiro = f'comparacao_speed_C{i}.png'
     plt.savefig(os.path.join(diretoria, nome_ficheiro), dpi=300, bbox_inches='tight')
@@ -94,8 +95,9 @@ for i, col in enumerate(metrics_wt, start=1):
     plt.title(f'Average Waiting Time in C{i}')
     plt.legend(fontsize=14, loc='upper right')
     plt.grid(True)
+    plt.ylim(0, 120)  # adicionado
     plt.tick_params(axis='both', labelsize=16)
-    nome_ficheiro = f'arrival_C{i}.png'     # FIX: era arrival_0..3, agora arrival_C1..C4
+    nome_ficheiro = f'arrival_C{i}.png'
     plt.savefig(os.path.join(diretoria, nome_ficheiro), dpi=300, bbox_inches='tight')
     plt.close()
 
@@ -113,7 +115,7 @@ for i, col in enumerate(metrics_phase_time, start=1):
     plt.ylim(0, 60)
     plt.xlim(1, 9)
     plt.tick_params(axis='both', labelsize=16)
-    nome_ficheiro = f'phaseTime_C{i}.png'   # FIX: era phaseTime_0..3, agora phaseTime_C1..C4
+    nome_ficheiro = f'phaseTime_C{i}.png'
     plt.savefig(os.path.join(diretoria, nome_ficheiro), dpi=300, bbox_inches='tight')
     plt.close()
 

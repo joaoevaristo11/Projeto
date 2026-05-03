@@ -420,13 +420,15 @@ venv\Scripts\activate
 python -m pip install --upgrade pip
 
 # Instalar bibliotecas
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+
+> Depois de ativar a venv, usa `python` e `pip` normais. `py -3.11` ignora a venv e pode apontar para a instalação global.
 
 ### 6. Verificar Instalação
 
 ```cmd
-python -c "import tensorflow; import numpy; import traci; print('✅ Tudo OK!')"
+python -c "import tensorflow; import numpy; import traci; print('Tudo OK!')"
 ```
 
 ---

@@ -13,7 +13,7 @@ import tensorflow as tf
 
 class Simulation:
     def __init__(self, Model_1, Model_2, Memory_1, Memory_2, TrafficGen, PedestrianGen, sumo_cmd, gamma, max_steps,
-                 green_duration, yellow_duration, num_states, num_actions, training_epochs):
+                 yellow_duration, num_states, num_actions, training_epochs):
         # network parameters
         self._Model_Cell_1 = Model_1  # partilhado por J1 e J3 (cruzamentos Av. Marquês de Tomar)
         self._Model_Cell_2 = Model_2  # partilhado por J2 e J4 (cruzamentos Av. 5 de Outubro)
@@ -25,7 +25,8 @@ class Simulation:
         self._step = 0
         self._sumo_cmd = sumo_cmd
         self._max_steps = max_steps
-        self._green_duration = green_duration
+        # MANTIDO EM COMENTÁRIO: Já não usamos green_duration fixo
+        # self._green_duration = green_duration
         self._yellow_duration = yellow_duration
         self._num_states = num_states
         self._num_actions = num_actions
@@ -39,7 +40,8 @@ class Simulation:
 
         self.intersections = intersection_manager.create_intersections(self._num_states)
         for C in self.intersections.values():
-            C.green_duration = self._green_duration
+            # MANTIDO EM COMENTÁRIO: A IA agora decide a duração de verde dinamicamente
+            # C.green_duration = self._green_duration
             C.yellow_duration = self._yellow_duration
         self.routes = intersection_manager.create_routes()
         self.waiting_ped = intersection_manager.create_waiting_zones()

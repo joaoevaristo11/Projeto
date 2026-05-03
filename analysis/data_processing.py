@@ -6,11 +6,11 @@ from openpyxl.utils import column_index_from_string
 from openpyxl.chart.series import SeriesLabel
 
 # CONFIGURAÇÕES
-models = {'Estratégia 4': r'./models/model_2'} # para ambiente real: ./models/real_env
-#models = {'Estratégia 4': r'./models/real_env'}
+#models = {'Estratégia 4': r'./models/model_5'} # para ambiente real: ./models/real_env
+models = {'Estratégia 4': r'./models/real_env'}
 test_dirs = ['test_5000', 'test_10000', 'test_10003']
-excel_file = r'./analysis/valores_inteligente.xlsx'
-#excel_file = r'./analysis/valores_real.xlsx'
+#excel_file = r'./analysis/valores_inteligente.xlsx'
+excel_file = r'./analysis/valores_real.xlsx'
 
 column_mapping = {
     'reward': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'],

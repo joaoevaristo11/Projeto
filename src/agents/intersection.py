@@ -8,7 +8,7 @@ PHASE_EW_GREEN  = 3  # ACTION 1: verde Este-Oeste
 PHASE_EW_YELLOW = 4  # amarelo EW
 PHASE_EW_RED    = 5  # tudo vermelho apos EW
 
-NUM_ACTIONS = 2
+NUM_ACTIONS = 8
 MAX_EDGES   = 4   # todas as routes têm 4 edges
 # num_states = 164 (base) + 2 (action_encode) + 4 (lane_occupancy) = 170
 
@@ -19,9 +19,20 @@ class Intersection:
         self.dur = -1
         self.action = -1
         self.yellow = 0
-        self.green_duration = 10
+        #self.green_duration = 10
         self.yellow_duration = 4
         self.num_states = num_states
+
+        self.ACTIONS = {
+            0: {"phase": 0, "duration": 8},
+            1: {"phase": 0, "duration": 16},
+            2: {"phase": 0, "duration": 24},
+            3: {"phase": 0, "duration": 32},
+            4: {"phase": 1, "duration": 8},
+            5: {"phase": 1, "duration": 16},
+            6: {"phase": 1, "duration": 24},
+            7: {"phase": 1, "duration": 32},
+        }
 
         # training
         self.reward_episode = []
@@ -76,24 +87,36 @@ class Intersection:
         return np.concatenate([state, occupancy_array])
 
     def choose_phase(self, step, action, old_action, name, yellow, idx, routes, map_env, sapa):
-        if step != 0 and old_action != action and old_action != -1 and yellow == 0:
-            self.set_yellow_phase(old_action, name)
-            return self.yellow_duration, 1
-        else:
-            self.set_green_phase(action, name)
-           #dur = sapa.sapa_block(idx, routes, map_env, action)
-            return self.green_duration, 0
+        # Lê a ação atual do dicionário (usa a ação 0 como fallback de segurança)
+        current_action_info = self.ACTIONS.get(action, {"phase": 0, "duration": 8})
+        current_phase = current_action_info["phase"]
+        chosen_duration = current_action_info["duration"]
 
-    def set_green_phase(self, action_number, TL_NAME):
-        if action_number == 0:
+        # Lê a fase antiga para saber se mudou
+        # Se old_action não estiver no dicionário (ex: -1 no início), a fase é -1
+        old_action_info = self.ACTIONS.get(old_action, {"phase": -1, "duration": 0})
+        old_phase = old_action_info["phase"]
+
+        # Lógica de transição de fase com amarelo
+        if step != 0 and old_phase != current_phase and old_phase != -1 and yellow == 0:
+            self.set_yellow_phase(old_phase, name)
+            return self.yellow_duration, 1 # Retorna duração do amarelo e flag yellow=1
+        else:
+            self.set_green_phase(current_phase, name)
+            #dur = sapa.sapa_block(idx, routes, map_env, action) 
+            return chosen_duration, 0 # Retorna duração do verde escolhida e flag yellow=0
+
+
+    def set_green_phase(self, phase_id, TL_NAME):
+        if phase_id == 0:
             traci.trafficlight.setPhase(TL_NAME, PHASE_NS_GREEN)
-        elif action_number == 1:
+        elif phase_id == 1:
             traci.trafficlight.setPhase(TL_NAME, PHASE_EW_GREEN)
 
-    def set_yellow_phase(self, old_action, TL_NAME):
-        if old_action == 0:
+    def set_yellow_phase(self, phase_id, TL_NAME):
+        if phase_id == 0:
             traci.trafficlight.setPhase(TL_NAME, PHASE_NS_YELLOW)
-        elif old_action == 1:
+        elif phase_id == 1:
             traci.trafficlight.setPhase(TL_NAME, PHASE_EW_YELLOW)
 
     def pedestrians_state(self, state, wz):

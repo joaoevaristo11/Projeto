@@ -16,7 +16,7 @@ def import_train_configuration(config_file):
     config['max_steps'] = content['simulation'].getint('max_steps')
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
     config['n_peds_generated'] = content['simulation'].getint('n_peds_generated')
-    config['green_duration'] = content['simulation'].getint('green_duration')
+    #config['green_duration'] = content['simulation'].getint('green_duration')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['num_layers'] = content['model'].getint('num_layers')
     config['width_layers'] = content['model'].getint('width_layers')
@@ -46,7 +46,7 @@ def import_test_configuration(config_file):
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
     config['n_peds_generated'] = content['simulation'].getint('n_peds_generated')
     config['episode_seed'] = content['simulation'].getint('episode_seed')
-    config['green_duration'] = content['simulation'].getint('green_duration')
+    #config['green_duration'] = content['simulation'].getint('green_duration')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['n_agents'] = content['agent'].getint('n_agents')
     config['num_states'] = content['agent'].getint('num_states')
@@ -68,37 +68,43 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
         sys.path.append(tools)
     else:
         sys.exit("please declare environment variable 'SUMO_HOME'")
-
     if gui == False:
         sumoBinary = checkBinary('sumo')
     else:
         sumoBinary = checkBinary('sumo-gui')
-
     sumo_cmd = [sumoBinary, "-c", os.path.join('sumo', sumocfg_file_name),
                 "--no-step-log", "true",
                 "--waiting-time-memory", str(max_steps),
                 "--ignore-route-errors", "true",
                 "--start",
                 "--quit-on-end"]
-
     return sumo_cmd
 
 
 def set_train_path(models_path_name):
     """
-    Create a new model path with an incremental integer, also considering previously created model paths
+    Create a new model path with an incremental integer, also considering previously created model paths.
+    Ignores any files or folders that do not follow the pattern 'model_N'.
     """
     models_path = os.path.join(os.getcwd(), models_path_name, '')
     os.makedirs(os.path.dirname(models_path), exist_ok=True)
-
     dir_content = os.listdir(models_path)
+
     if dir_content:
-        previous_versions = [int(name.split("_")[1]) for name in dir_content]
-        new_version = str(max(previous_versions) + 1)
+        previous_versions = []
+        for name in dir_content:
+            # Ignorar ficheiros e pastas que não sigam o padrão model_N
+            parts = name.split("_")
+            if len(parts) == 2 and parts[0] == "model":
+                try:
+                    previous_versions.append(int(parts[1]))
+                except ValueError:
+                    pass  # ignora model_1.zip, model_abc, etc.
+        new_version = str(max(previous_versions) + 1) if previous_versions else '1'
     else:
         new_version = '1'
 
-    data_path = os.path.join(models_path, 'model_'+new_version, '')
+    data_path = os.path.join(models_path, 'model_' + new_version, '')
     os.makedirs(os.path.dirname(data_path), exist_ok=True)
     return data_path
 
@@ -107,8 +113,7 @@ def set_test_path(models_path_name, model_n, episode_seed):
     """
     Returns a model path that identifies the model number provided as argument and a newly created 'test' path
     """
-    model_folder_path = os.path.join(os.getcwd(), models_path_name, 'model_'+str(model_n), '')
-
+    model_folder_path = os.path.join(os.getcwd(), models_path_name, 'model_' + str(model_n), '')
     if os.path.isdir(model_folder_path):
         plot_path = os.path.join(model_folder_path, 'test_' + str(episode_seed), '')
         os.makedirs(os.path.dirname(plot_path), exist_ok=True)

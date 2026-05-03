@@ -109,4 +109,3 @@ if __name__ == "__main__":
     diretorio_base = r'E:\GGALVAO\BOLSA\Trabalhos\2_NN_2_cells_DQN\TLCS\models\model_8'
     nomes_testes = ["test_5000","test_10000","test_10003"]  # no meu caso tenho test_10000 a test_10004
     processar_testes_e_criar_excel(diretorio_base, nomes_testes)
-
