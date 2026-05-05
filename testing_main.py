@@ -43,8 +43,9 @@ if __name__ == "__main__":
 
     # ── Carregar modelos ou None em modo REAL ─────────────────────────────────
     if real_mode:
-        Model_Cell_1 = None
-        Model_Cell_2 = None
+        Model_Cell_1   = None
+        Model_Cell_2   = None
+        Model_Duration = None
     else:
         Model_Cell_1 = TestModel(
             input_dim=config['num_states'],
@@ -55,6 +56,13 @@ if __name__ == "__main__":
             input_dim=config['num_states'],
             model_path=model_path,
             name="Trained_Cell_2.h5"
+        )
+        # carregar modelo de duração
+        # Mesma input_dim que Cell_1/Cell_2 — estado local de 170 dims igual para todos
+        Model_Duration = TestModel(
+            input_dim=config['num_states'],
+            model_path=model_path,
+            name="Trained_Duration.h5"
         )
 
     TrafficGen = TrafficGenerator(
@@ -71,14 +79,17 @@ if __name__ == "__main__":
     Simulation = Simulation(
         Model_Cell_1,
         Model_Cell_2,
+        Model_Duration,
         TrafficGen,
         PedestrianGen,
         sumo_cmd,
         config['max_steps'],
-        # config['green_duration'],  ← removido: a IA decide a duração dinamicamente
+        # config['green_duration'], 
         config['yellow_duration'],
         config['num_states'],
-        config['num_actions'],
+        # config['num_actions'],
+        config['num_actions_phase'],
+        config['num_actions_duration'],
         config['network'],
         config['n_agents']
     )
@@ -120,3 +131,17 @@ if __name__ == "__main__":
         xlabel='Lane id',
         ylabel='Volume of vehicles (veh/h)'
     )
+
+    # gráficos de duração escolhida pela Cell_Duration por fase por cruzamento
+    # Pedido do professor: "recolherem as durações de cada fase desta nova rede
+    # por cruzamento para observarmos como ela se está a comportar"
+    if not real_mode:
+        for idx, phase_logs in Simulation.duration_log_stores.items():
+            for phase_id, durations in phase_logs.items():
+                phase_name = "NS" if phase_id == 0 else "EW"
+                Visualization.save_data_and_plot(
+                    data=durations,
+                    filename=f'Duration Log C{idx} {phase_name}',
+                    xlabel='Decision',
+                    ylabel=f'Green duration chosen at C{idx} {phase_name} (s)'
+                )

@@ -7,126 +7,163 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import src.simulation.intersection_manager as intersection_manager
-import src.algorithms.sapa as sapa
 import tensorflow as tf
 
 
 class Simulation:
-    def __init__(self, Model_1, Model_2, Memory_1, Memory_2, TrafficGen, PedestrianGen, sumo_cmd, gamma, max_steps,
-                 yellow_duration, num_states, num_actions, training_epochs):
-        # network parameters
-        self._Model_Cell_1 = Model_1  # partilhado por J1 e J3 (cruzamentos Av. Marquês de Tomar)
-        self._Model_Cell_2 = Model_2  # partilhado por J2 e J4 (cruzamentos Av. 5 de Outubro)
-        self._Memory_1 = Memory_1
-        self._Memory_2 = Memory_2
-        self._TrafficGen = TrafficGen
-        self._PedestrianGen = PedestrianGen
-        self._gamma = gamma
-        self._step = 0
-        self._sumo_cmd = sumo_cmd
-        self._max_steps = max_steps
-        # MANTIDO EM COMENTÁRIO: Já não usamos green_duration fixo
-        # self._green_duration = green_duration
-        self._yellow_duration = yellow_duration
-        self._num_states = num_states
-        self._num_actions = num_actions
-        self._training_epochs = training_epochs
+    def __init__(self, Model_Cell_1, Model_Cell_2, Model_Duration,
+                 Memory_1, Memory_2, Memory_Duration,
+                 TrafficGen, PedestrianGen, sumo_cmd, gamma, max_steps,
+                 yellow_duration, num_states, num_actions_phase, num_actions_duration,
+                 training_epochs):
 
-        self._model_training_loss_cell_1 = []
-        self._model_training_loss_cell_2 = []
+        # modelos de FASE (Cell_1 → J1+J3, Cell_2 → J2+J4)
+        self._Model_Cell_1 = Model_Cell_1
+        self._Model_Cell_2 = Model_Cell_2
+        # modelo de DURAÇÃO (partilhado por todos os cruzamentos)
+        self._Model_Duration = Model_Duration
+
+        # memórias
+        self._Memory_1        = Memory_1
+        self._Memory_2        = Memory_2
+        self._Memory_Duration = Memory_Duration
+
+        self._TrafficGen    = TrafficGen
+        self._PedestrianGen = PedestrianGen
+        self._gamma         = gamma
+        self._step          = 0
+        self._sumo_cmd      = sumo_cmd
+        self._max_steps     = max_steps
+        self._yellow_duration       = yellow_duration
+        self._num_states            = num_states
+        self._num_actions_phase     = num_actions_phase
+        self._num_actions_duration  = num_actions_duration
+        self._training_epochs       = training_epochs
+
+        self._model_training_loss_cell_1    = []
+        self._model_training_loss_cell_2    = []
+        self._model_training_loss_duration  = []
 
         self._Pveh = 0.50
         self._Pped = 0.50
 
-        self.intersections = intersection_manager.create_intersections(self._num_states)
+        self.intersections  = intersection_manager.create_intersections(self._num_states)
         for C in self.intersections.values():
-            # MANTIDO EM COMENTÁRIO: A IA agora decide a duração de verde dinamicamente
-            # C.green_duration = self._green_duration
             C.yellow_duration = self._yellow_duration
-        self.routes = intersection_manager.create_routes()
-        self.waiting_ped = intersection_manager.create_waiting_zones()
-        self.tl_names = intersection_manager.create_tl_names()
+        self.routes         = intersection_manager.create_routes()
+        self.waiting_ped    = intersection_manager.create_waiting_zones()
+        self.tl_names       = intersection_manager.create_tl_names()
         self.incoming_roads = intersection_manager.create_incoming_routes()
-        self.lanes_110_132 = intersection_manager.create_110_132_routes()
-        self.map_env = intersection_manager.create_map_environment_()
-        self.sapa = sapa.sapa_module()
+        self.lanes_110_132  = intersection_manager.create_110_132_routes()
+        self.map_env        = intersection_manager.create_map_environment_()
 
-    def _get_model_and_memory(self, idx):
-        """
-        Devolve o modelo e memória correspondentes ao índice do agente.
-        - J1 (idx=1) e J3 (idx=3): cruzamentos Av. Marquês de Tomar → Model/Memory Cell 1
-        - J2 (idx=2) e J4 (idx=4): cruzamentos Av. 5 de Outubro    → Model/Memory Cell 2
-        """
+    # ------------------------------------------------------------------
+    # Utilitários
+    # ------------------------------------------------------------------
+
+    def _get_phase_model_and_memory(self, idx):
+        """Cell_1 para J1/J3; Cell_2 para J2/J4."""
         if idx in (1, 3):
             return self._Model_Cell_1, self._Memory_1
-        else:  # idx in (2, 4)
+        else:
             return self._Model_Cell_2, self._Memory_2
 
+    def _choose_action(self, state, epsilon, model, num_actions):
+        if random.random() < epsilon:
+            return random.randint(0, num_actions - 1)
+        return int(np.argmax(model.predict_one(state)))
+
+    # ------------------------------------------------------------------
+    # Loop principal
+    # ------------------------------------------------------------------
+
     def run(self, episode, epsilon, train_ON_OFF):
-        """
-        Runs an episode of simulation, then starts a training session
-        """
         start_time = timeit.default_timer()
 
-        # first, generate the route file for this simulation and set up sumo
         self._TrafficGen.generate_routefile(seed=episode)
         self._PedestrianGen.generate_ped_routefile(seed=episode)
         traci.start(self._sumo_cmd)
 
         print("Simulating...")
-
-        # initiate metrics
         self._step = 0
 
         while self._step < self._max_steps:
 
+            # ── Inicialização no primeiro step ────────────────────────
             if self.intersections[1].dur == -1:
                 for idx, C in self.intersections.items():
-                    model, _ = self._get_model_and_memory(idx)
+                    phase_model, _ = self._get_phase_model_and_memory(idx)
 
-                    # obter estado atual
-                    current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, 0)
+                    current_state = C.get_state(idx, self.waiting_ped[idx], self.routes,
+                                                self.lanes_110_132, 0)
                     ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
-                    # escolher nova ação
-                    C.action = self._choose_action(current_state, epsilon, model)
+                    # escolher fase
+                    C.action = self._choose_action(current_state, epsilon,
+                                                   phase_model, self._num_actions_phase)
+                    # escolher duração
+                    C.action_dur = self._choose_action(current_state, epsilon,
+                                                       self._Model_Duration,
+                                                       self._num_actions_duration)
 
-                    # atualizar históricos
-                    C.old_state = current_state
-                    C.old_action = C.action
+                    C.old_state      = current_state
+                    C.old_action     = C.action
+                    C.old_action_dur = C.action_dur
                     C.old_total_wait = 0
-                    C.old_ped_wait = ped_wait
+                    C.old_ped_wait   = ped_wait
 
-                    # avançar fase
-                    C.dur, C.yellow = C.choose_phase(self._step, C.action, C.old_action, self.tl_names[idx], C.yellow, idx, self.routes, self.map_env, self.sapa)
+                    # aplicar fase + duração
+                    dur_yellow, C.yellow = C.choose_phase(
+                        self._step, C.action, C.old_action, self.tl_names[idx], C.yellow)
+                    if C.yellow == 1:
+                        C.dur = dur_yellow
+                    else:
+                        from src.agents.intersection import DURATION_VALUES
+                        C.dur = DURATION_VALUES[C.action_dur]
 
+            # ── Step normal ───────────────────────────────────────────
             for idx, C in self.intersections.items():
                 if C.dur == 0:
                     if C.yellow == 0:
-                        model, memory = self._get_model_and_memory(idx)
+                        phase_model, phase_memory = self._get_phase_model_and_memory(idx)
 
-                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, C.old_action)
+                        current_state = C.get_state(idx, self.waiting_ped[idx], self.routes,
+                                                    self.lanes_110_132, C.old_action)
                         current_total_wait = C.collect_waiting_times(self.incoming_roads[idx])
                         ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
-                        reward = (self._Pveh * (C.old_total_wait - current_total_wait) + (
-                                    C.old_ped_wait - ped_wait) * self._Pped)
+                        reward = (self._Pveh * (C.old_total_wait - current_total_wait)
+                                  + self._Pped * (C.old_ped_wait - ped_wait))
 
-                        # escolher próxima ação e guardar na memória
-                        C.action = self._choose_action(current_state, epsilon, model)
-                        memory.add_sample((C.old_state, C.old_action, reward, current_state))
+                        # nova ação de fase
+                        C.action = self._choose_action(current_state, epsilon,
+                                                       phase_model, self._num_actions_phase)
+                        # nova ação de duração
+                        C.action_dur = self._choose_action(current_state, epsilon,
+                                                           self._Model_Duration,
+                                                           self._num_actions_duration)
 
-                        # atualizar histórico
-                        C.old_state = current_state
-                        C.old_action = C.action
+                        # guardar experiências
+                        phase_memory.add_sample((C.old_state, C.old_action, reward, current_state))
+                        self._Memory_Duration.add_sample((C.old_state, C.old_action_dur, reward, current_state))
+
+                        C.old_state      = current_state
+                        C.old_action     = C.action
+                        C.old_action_dur = C.action_dur
                         C.old_total_wait = current_total_wait
-                        C.old_ped_wait = ped_wait
+                        C.old_ped_wait   = ped_wait
 
                         if reward < 0:
                             C.sum_neg_reward += reward
 
-                    # avançar fase
-                    C.dur, C.yellow = C.choose_phase(self._step, C.action, C.old_action, self.tl_names[idx], C.yellow, idx, self.routes, self.map_env, self.sapa)
+                    # aplicar nova fase/duração
+                    dur_yellow, C.yellow = C.choose_phase(
+                        self._step, C.action, C.old_action, self.tl_names[idx], C.yellow)
+                    if C.yellow == 1:
+                        C.dur = dur_yellow
+                    else:
+                        from src.agents.intersection import DURATION_VALUES
+                        C.dur = DURATION_VALUES[C.action_dur]
 
             for C in self.intersections.values():
                 if C.dur > 0:
@@ -138,82 +175,67 @@ class Simulation:
         traci.close()
         simulation_time = round(timeit.default_timer() - start_time, 1)
 
+        # ── Treino ────────────────────────────────────────────────────
         if train_ON_OFF == 1:
             print("Training...")
             start_time = timeit.default_timer()
-            for index in range(self._training_epochs):
-                self._replay(self._Model_Cell_1, self._model_training_loss_cell_1, self._Memory_1)
-                self._replay(self._Model_Cell_2, self._model_training_loss_cell_2, self._Memory_2)
+            for _ in range(self._training_epochs):
+                self._replay(self._Model_Cell_1, self._model_training_loss_cell_1,   self._Memory_1)
+                self._replay(self._Model_Cell_2, self._model_training_loss_cell_2,   self._Memory_2)
+                self._replay(self._Model_Duration, self._model_training_loss_duration, self._Memory_Duration)
             self._Model_Cell_1.copy_weights()
             self._Model_Cell_2.copy_weights()
+            self._Model_Duration.copy_weights()
             training_time = round(timeit.default_timer() - start_time, 1)
         else:
             training_time = 0
 
         return simulation_time, training_time
 
-    def _choose_action(self, state, epsilon, model):
-        """
-        Decide wheter to perform an explorative or exploitative action, according to an epsilon-greedy policy
-        """
-        if random.random() < epsilon:
-            return random.randint(0, self._num_actions - 1)  # random action
-        else:
-            return np.argmax(model.predict_one(state))  # the best action given the current state
+    # ------------------------------------------------------------------
+    # DDQN replay
+    # ------------------------------------------------------------------
 
     def _replay(self, Model, loss, memory):
-        """
-        Retrieve a group of samples from the memory and for each of them update the learning equation, then train
-        """
         batch = memory.get_samples(Model.batch_size)
         batch_size = len(batch)
-
         if batch_size == 0:
             return
 
-        # Extrair dados do batch
-        states = np.array([b[0] for b in batch], dtype=np.float32)
-        actions = np.array([b[1] for b in batch], dtype=np.int32)
-        rewards = np.array([b[2] for b in batch], dtype=np.float32)
+        states      = np.array([b[0] for b in batch], dtype=np.float32)
+        actions     = np.array([b[1] for b in batch], dtype=np.int32)
+        rewards     = np.array([b[2] for b in batch], dtype=np.float32)
         next_states = np.array([b[3] for b in batch], dtype=np.float32)
 
-        # Converter para tensores
-        states_tf = tf.convert_to_tensor(states)
+        states_tf      = tf.convert_to_tensor(states)
         next_states_tf = tf.convert_to_tensor(next_states)
-        actions_tf = tf.convert_to_tensor(actions)
-        rewards_tf = tf.convert_to_tensor(rewards)
+        actions_tf     = tf.convert_to_tensor(actions)
+        rewards_tf     = tf.convert_to_tensor(rewards)
 
         q_s_a = Model.model(states_tf)
 
-        # DDQN
-        # escolher a ação com a rede principal
-        q_next_online = Model.model(next_states_tf)
-        next_actions = tf.argmax(q_next_online, axis=1)
-        next_actions = tf.cast(next_actions, tf.int32)
-
-        # avaliar com rede target
-        q_next_target = Model.model_target(next_states_tf)
-
-        indices_next = tf.stack([tf.range(batch_size), next_actions], axis=1)
+        # DDQN: selecionar com main, avaliar com target
+        q_next_online  = Model.model(next_states_tf)
+        next_actions   = tf.cast(tf.argmax(q_next_online, axis=1), tf.int32)
+        q_next_target  = Model.model_target(next_states_tf)
+        indices_next   = tf.stack([tf.range(batch_size), next_actions], axis=1)
         selected_q_next = tf.gather_nd(q_next_target, indices_next)
 
-        # DDQN equation
         updates = rewards_tf + self._gamma * selected_q_next
 
-        # Atualizar apenas Q(s,a) executado
         targets = tf.identity(q_s_a)
         indices = tf.stack([tf.range(batch_size), actions_tf], axis=1)
         targets = tf.tensor_scatter_nd_update(targets, indices, updates)
 
-        # Treinar
         Model.train_batch(states_tf, targets)
         loss.append(Model.training_loss)
 
+    # ------------------------------------------------------------------
+    # Stats
+    # ------------------------------------------------------------------
+
     def _save_episode_stats(self):
-        """
-        Save the stats of the episode to plot the graphs at the end of the session
-        """
-        for idx, C in self.intersections.items():
+        for C in self.intersections.values():
             C.reward_episode.append(C.sum_neg_reward)
             C.sum_neg_reward = 0
 
@@ -228,3 +250,7 @@ class Simulation:
     @property
     def model_loss_cell_2(self):
         return self._model_training_loss_cell_2
+
+    @property
+    def model_loss_duration(self):
+        return self._model_training_loss_duration

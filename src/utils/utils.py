@@ -3,7 +3,6 @@ from sumolib import checkBinary
 import os
 import sys
 
-
 def import_train_configuration(config_file):
     """
     Read the config file regarding the training and import its content
@@ -26,13 +25,14 @@ def import_train_configuration(config_file):
     config['memory_size_min'] = content['memory'].getint('memory_size_min')
     config['memory_size_max'] = content['memory'].getint('memory_size_max')
     config['num_states'] = content['agent'].getint('num_states')
-    config['num_actions'] = content['agent'].getint('num_actions')
+    # config['num_actions'] = content['agent'].getint('num_actions')
+    config['num_actions_phase']    = content['agent'].getint('num_actions_phase')
+    config['num_actions_duration'] = content['agent'].getint('num_actions_duration')
     config['gamma'] = content['agent'].getfloat('gamma')
     config['models_path_name'] = content['dir']['models_path_name']
     config['sumocfg_file_name'] = content['dir']['sumocfg_file_name']
     config['scenario'] = content['simulation'].getint('scenario')
     return config
-
 
 def import_test_configuration(config_file):
     """
@@ -50,14 +50,15 @@ def import_test_configuration(config_file):
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['n_agents'] = content['agent'].getint('n_agents')
     config['num_states'] = content['agent'].getint('num_states')
-    config['num_actions'] = content['agent'].getint('num_actions')
+    # config['num_actions'] = content['agent'].getint('num_actions')
+    config['num_actions_phase']    = content['agent'].getint('num_actions_phase')
+    config['num_actions_duration'] = content['agent'].getint('num_actions_duration')
     config['network'] = content['network']['algorithm']
     config['sumocfg_file_name'] = content['dir']['sumocfg_file_name']
     config['models_path_name'] = content['dir']['models_path_name']
     config['model_to_test'] = content['dir'].getint('model_to_test')
     config['scenario'] = content['simulation'].getint('scenario')
     return config
-
 
 def set_sumo(gui, sumocfg_file_name, max_steps):
     """
@@ -80,7 +81,6 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
                 "--quit-on-end"]
     return sumo_cmd
 
-
 def set_train_path(models_path_name):
     """
     Create a new model path with an incremental integer, also considering previously created model paths.
@@ -89,25 +89,21 @@ def set_train_path(models_path_name):
     models_path = os.path.join(os.getcwd(), models_path_name, '')
     os.makedirs(os.path.dirname(models_path), exist_ok=True)
     dir_content = os.listdir(models_path)
-
     if dir_content:
         previous_versions = []
         for name in dir_content:
-            # Ignorar ficheiros e pastas que não sigam o padrão model_N
             parts = name.split("_")
             if len(parts) == 2 and parts[0] == "model":
                 try:
                     previous_versions.append(int(parts[1]))
                 except ValueError:
-                    pass  # ignora model_1.zip, model_abc, etc.
+                    pass
         new_version = str(max(previous_versions) + 1) if previous_versions else '1'
     else:
         new_version = '1'
-
     data_path = os.path.join(models_path, 'model_' + new_version, '')
     os.makedirs(os.path.dirname(data_path), exist_ok=True)
     return data_path
-
 
 def set_test_path(models_path_name, model_n, episode_seed):
     """

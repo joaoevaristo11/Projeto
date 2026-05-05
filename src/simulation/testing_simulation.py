@@ -2,7 +2,8 @@ import traci
 import numpy as np
 import timeit
 import src.simulation.intersection_manager as intersection_manager
-import src.algorithms.sapa as sapa
+# import src.algorithms.sapa as sapa
+from src.agents.intersection import DURATION_VALUES
 
 PHASE_TO_ACTION = {
     0: 1,   # NS green
@@ -14,28 +15,40 @@ Volume_Lanes = [
     '510_NS_1', '510_SN_1', 'VV_WE_1', 'VV_EW_1',
 ]
 
-
 class Simulation:
-    def __init__(self, Model_1, Model_2, TrafficGen, PedestrianGen, sumo_cmd, max_steps,
-                 yellow_duration, num_states, num_actions, network, n_agents):
-        self.eye = None
-        self._Model_Cell_1 = Model_1
-        self._Model_Cell_2 = Model_2
+    # ALTERADO: __init__ recebe Model_Duration como novo parâmetro
+    # ALTERADO: num_actions separado em num_actions_phase (2) e num_actions_duration (4)
+    # def __init__(self, Model_1, Model_2, TrafficGen, PedestrianGen, sumo_cmd, max_steps,
+    #              yellow_duration, num_states, num_actions, network, n_agents):
+    def __init__(self, Model_1, Model_2, Model_Duration,
+                 TrafficGen, PedestrianGen, sumo_cmd, max_steps,
+                 yellow_duration, num_states, num_actions_phase, num_actions_duration,
+                 network, n_agents):
+
+        # self.eye = None  # REMOVIDO: era usado pelo actor (MARL), já não se aplica
+        self._Model_Cell_1   = Model_1
+        self._Model_Cell_2   = Model_2
+        #modelo de duração partilhado por todos os cruzamentos
+        self._Model_Duration = Model_Duration
+
         self._TrafficGen = TrafficGen
         self._PedestrianGen = PedestrianGen
         self._step = 0
         self._sumo_cmd = sumo_cmd
         self._max_steps = max_steps
-        #self._green_duration = green_duration
+        # self._green_duration = green_duration 
         self._yellow_duration = yellow_duration
         self._num_states = num_states
-        self._num_actions = num_actions
+        # agora guardamos os dois num_actions separados
+        # self._num_actions = num_actions
+        self._num_actions_phase = num_actions_phase
+        self._num_actions_duration = num_actions_duration
         self._type_Network = network
         self._n_agents = n_agents
 
-        self.intersections = intersection_manager.create_intersections(self._num_states)
+        self.intersections  = intersection_manager.create_intersections(self._num_states)
         for C in self.intersections.values():
-            #C.green_duration = self._green_duration
+            # C.green_duration = self._green_duration  
             C.yellow_duration = self._yellow_duration
         self.routes         = intersection_manager.create_routes()
         self.waiting_ped    = intersection_manager.create_waiting_zones()
@@ -43,11 +56,11 @@ class Simulation:
         self.incoming_roads = intersection_manager.create_incoming_routes()
         self.lanes_110_132  = intersection_manager.create_110_132_routes()
         self.map_env        = intersection_manager.create_map_environment_()
-        self.sapa           = sapa.sapa_module()
+        # self.sapa           = sapa.sapa_module()
 
         self._veiculos_unicos = {lane_id: set() for lane_id in Volume_Lanes}
         self._volume_por_lane = {lane_id: 0     for lane_id in Volume_Lanes}
-        self._minute = 1
+        self._minute       = 1
         self._real_offsets = {1: 0, 2: 1, 3: 1, 4: 0}
 
     def _is_real_mode(self):
@@ -57,7 +70,11 @@ class Simulation:
         cycle = 60
         return ((self._step // cycle) + self._real_offsets.get(idx, 0)) % 2
 
-    def _get_model(self, idx):
+    # renomeei de _get_model() para _get_phase_model() por clareza
+    # def _get_model(self, idx):
+    #     return self._Model_Cell_1 if idx in (1, 3) else self._Model_Cell_2
+    def _get_phase_model(self, idx):
+        """Cell_1 para J1/J3; Cell_2 para J2/J4."""
         return self._Model_Cell_1 if idx in (1, 3) else self._Model_Cell_2
 
     def run(self, episode):
@@ -75,7 +92,7 @@ class Simulation:
             for idx, C in self.intersections.items():
 
                 if self._is_real_mode():
-                    # Modo REAL: alternância cíclica NS/WE sem rede neuronal
+                    # Modo REAL: alternância cíclica NS/EW sem rede neuronal — inalterado
                     C.action = self._real_action_for_step(idx)
                     C.set_green_phase(C.action, self.tl_names[idx])
                     if C.old_action != C.action:
@@ -84,17 +101,50 @@ class Simulation:
                     C.old_action = C.action
 
                 else:
-                    # Modo inteligente: rede neuronal
+                    # Modo inteligente: Cell_1/Cell_2 para fase + Cell_Duration para duração
                     if C.dur == 0 or C.dur == -1:
                         if C.yellow == 0:
-                            current_state = C.get_state(idx, self.waiting_ped[idx], self.routes, self.lanes_110_132, C.old_action)
-                            model = self._get_model(idx)
-                            C.action = self._choose_action(current_state, idx, model)
-                        C.dur, C.yellow = C.choose_phase(self._step, C.action, C.old_action, self.tl_names[idx], C.yellow, idx, self.routes, self.map_env, self.sapa)
+                            current_state = C.get_state(
+                                idx, self.waiting_ped[idx], self.routes,
+                                self.lanes_110_132, C.old_action
+                            )
+
+                            # Cell_1/Cell_2 escolhe a fase (NS ou EW)
+                            # era _get_model(), agora _get_phase_model()
+                            phase_model = self._get_phase_model(idx)
+                            C.action = int(np.argmax(phase_model.predict_one(current_state)))
+
+                            # Cell_Duration escolhe a duração do verde
+                            # Usa o mesmo estado local — mesma dimensão para todos os cruzamentos
+                            C.action_dur = int(np.argmax(
+                                self._Model_Duration.predict_one(current_state)
+                            ))
+
+                        # choose_phase já não recebe sapa/routes/map_env
+                        # C.dur, C.yellow = C.choose_phase(self._step, C.action, C.old_action,
+                        #     self.tl_names[idx], C.yellow, idx, self.routes, self.map_env, self.sapa)
+                        dur_yellow, C.yellow = C.choose_phase(
+                            self._step, C.action, C.old_action,
+                            self.tl_names[idx], C.yellow
+                        )
+
+                        # duração vem de DURATION_VALUES[action_dur] em vez do SAPA
+                        if C.yellow == 1:
+                            C.dur = dur_yellow          # duração do amarelo (fixa)
+                        else:
+                            C.dur = DURATION_VALUES[C.action_dur]   # duração escolhida pela rede
+
                         C.old_action = C.action
-                        if C.dur != 4:
+
+                        # ALTERADO: C.dur != 4 → C.yellow == 0
+                        # A condição antiga estava hardcoded para o amarelo de 4s; a nova é semântica
+                        # if C.dur != 4:
+                        if C.yellow == 0:
                             C.phase_duration[C.action] += C.dur
                             C.n_times_active[C.action] += 1
+
+                            C.duration_log[C.action].append(DURATION_VALUES[C.action_dur])
+
                     if C.dur > 0:
                         C.dur -= 1
 
@@ -125,11 +175,12 @@ class Simulation:
 
     def _time_extension(self, C):
         if self._step % 300 == 0:
-            for phase_id in range(self._num_actions):
-                avg = C.phase_duration[phase_id] / C.n_times_active[phase_id] if C.n_times_active[phase_id] > 0 else 0
+            for phase_id in range(self._num_actions_phase):
+                avg = (C.phase_duration[phase_id] / C.n_times_active[phase_id]
+                       if C.n_times_active[phase_id] > 0 else 0)
                 C.phase_durations[phase_id + 1].append(avg)
         else:
-            for phase_id in range(self._num_actions):
+            for phase_id in range(self._num_actions_phase):
                 C.phase_extension_1_hour[phase_id + 1] = (
                     C.phase_duration[phase_id] / C.n_times_active[phase_id]
                     if C.n_times_active[phase_id] > 0 else 0
@@ -171,18 +222,21 @@ class Simulation:
             awt_greenArea.append(sum(waitingVeh) / self._minute)
             waitingVeh.clear()
 
-    def _choose_action(self, state, idx, model):
-        if self._type_Network == 'DQN':
-            return np.argmax(model.predict_one(state))
-        else:
-            agent_pos = idx - 1
-            obs = state.astype(np.float32)[None, :]
-            oh  = self.eye[agent_pos][None, :]
-            a, _, _ = model.actor.act(obs=obs, agent_onehot=oh, deterministic=True)
-            return int(a[0])
-
     def _get_queue_length(self, idx, queue):
         queue.append(sum(traci.edge.getLastStepHaltingNumber(r) for r in self.incoming_roads[idx]))
+
+    # REMOVIDO: _choose_action com lógica DQN/actor — simplificado direto no run()
+    # def _choose_action(self, state, idx, model):
+    #     if self._type_Network == 'DQN':
+    #         return np.argmax(model.predict_one(state))
+    #     else:
+    #         agent_pos = idx - 1
+    #         obs = state.astype(np.float32)[None, :]
+    #         oh  = self.eye[agent_pos][None, :]
+    #         a, _, _ = model.actor.act(obs=obs, agent_onehot=oh, deterministic=True)
+    #         return int(a[0])
+
+    # ── Properties ────────────────────────────────────────────────────────────
 
     @property
     def queue_stores(self):
@@ -215,3 +269,8 @@ class Simulation:
     @property
     def vol_lanes(self):
         return self._volume_por_lane
+
+    # ADICIONADO: expõe os logs de duração por fase por cruzamento (pedido pelo professor)
+    @property
+    def duration_log_stores(self):
+        return {idx: C.duration_log for idx, C in self.intersections.items()}

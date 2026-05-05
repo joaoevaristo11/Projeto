@@ -8,8 +8,14 @@ PHASE_EW_GREEN  = 3  # ACTION 1: verde Este-Oeste
 PHASE_EW_YELLOW = 4  # amarelo EW
 PHASE_EW_RED    = 5  # tudo vermelho apos EW
 
-NUM_ACTIONS = 8
-MAX_EDGES   = 4   # todas as routes têm 4 edges
+# Redes de fase: 2 ações (NS ou EW)
+NUM_ACTIONS_PHASE    = 2
+# Rede de duração: 4 ações (8s, 16s, 24s, 32s)
+NUM_ACTIONS_DURATION = 4
+DURATION_VALUES      = [8, 16, 24, 32]
+
+NUM_ACTIONS = NUM_ACTIONS_PHASE   # mantido para compatibilidade com action_encode (usa NUM_ACTIONS_PHASE)
+MAX_EDGES   = 4                   # todas as routes têm 4 edges
 # num_states = 164 (base) + 2 (action_encode) + 4 (lane_occupancy) = 170
 
 
@@ -17,22 +23,11 @@ class Intersection:
     def __init__(self, id, num_states):
         self.id = id
         self.dur = -1
-        self.action = -1
+        self.action = -1          # ação de FASE (0=NS, 1=EW)
+        self.action_dur = -1      # ação de DURAÇÃO (0-3 → 8,16,24,32s)
         self.yellow = 0
-        #self.green_duration = 10
         self.yellow_duration = 4
         self.num_states = num_states
-
-        self.ACTIONS = {
-            0: {"phase": 0, "duration": 8},
-            1: {"phase": 0, "duration": 16},
-            2: {"phase": 0, "duration": 24},
-            3: {"phase": 0, "duration": 32},
-            4: {"phase": 1, "duration": 8},
-            5: {"phase": 1, "duration": 16},
-            6: {"phase": 1, "duration": 24},
-            7: {"phase": 1, "duration": 32},
-        }
 
         # training
         self.reward_episode = []
@@ -41,7 +36,8 @@ class Intersection:
         self.wait_veh = 0
         self.wait_ped = 0
         self.old_state = None
-        self.old_action = -1
+        self.old_action = -1           # fase anterior
+        self.old_action_dur = -1       # duração anterior
         self.old_total_wait = 0
         self.old_ped_wait = 0
 
@@ -53,11 +49,18 @@ class Intersection:
         self.avgspeed_greenArea = []
         self.avgspeed = []
         self.pedestrians_halting = []
-        self.phase_duration = [0] * NUM_ACTIONS
-        self.n_times_active = [0] * NUM_ACTIONS
-        self.phase_extension_1_hour = [0] * (NUM_ACTIONS + 1)
-        self.phase_extension_5min = [0] * (NUM_ACTIONS + 1)
-        self.phase_durations = [[] for _ in range(NUM_ACTIONS + 1)]
+        self.phase_duration = [0] * NUM_ACTIONS_PHASE
+        self.n_times_active = [0] * NUM_ACTIONS_PHASE
+        self.phase_extension_1_hour = [0] * (NUM_ACTIONS_PHASE + 1)
+        self.phase_extension_5min   = [0] * (NUM_ACTIONS_PHASE + 1)
+        self.phase_durations        = [[] for _ in range(NUM_ACTIONS_PHASE + 1)]
+
+        # testing - durações escolhidas pela rede de duração por fase
+        self.duration_log = {0: [], 1: []}   # fase 0 (NS) e fase 1 (EW)
+
+    # ------------------------------------------------------------------
+    # Coleta de esperas
+    # ------------------------------------------------------------------
 
     def collect_waiting_times(self, roads):
         return sum(traci.edge.getWaitingTime(e) for e in roads)
@@ -69,12 +72,20 @@ class Intersection:
                 total += traci.person.getWaitingTime(ped)
         return total
 
+    # ------------------------------------------------------------------
+    # Auxiliares de lane
+    # ------------------------------------------------------------------
+
     def _get_lane_ids(self, edge_id):
         try:
             n = traci.edge.getLaneNumber(edge_id)
             return [f"{edge_id}_{i}" for i in range(n)]
         except Exception:
             return [f"{edge_id}_0"]
+
+    # ------------------------------------------------------------------
+    # Ocupação de faixas (4 valores fixos → mesma dimensão para todos)
+    # ------------------------------------------------------------------
 
     def lane_occupancy(self, state, routes):
         """Adiciona MAX_EDGES valores de ocupacao ao estado (padding com 0 se route < MAX_EDGES)."""
@@ -86,26 +97,22 @@ class Intersection:
             occupancy_array[i] = np.mean([traci.lane.getLastStepOccupancy(lid) for lid in lane_ids])
         return np.concatenate([state, occupancy_array])
 
-    def choose_phase(self, step, action, old_action, name, yellow, idx, routes, map_env, sapa):
-        # Lê a ação atual do dicionário (usa a ação 0 como fallback de segurança)
-        current_action_info = self.ACTIONS.get(action, {"phase": 0, "duration": 8})
-        current_phase = current_action_info["phase"]
-        chosen_duration = current_action_info["duration"]
+    # ------------------------------------------------------------------
+    # Lógica de fases
+    # ------------------------------------------------------------------
 
-        # Lê a fase antiga para saber se mudou
-        # Se old_action não estiver no dicionário (ex: -1 no início), a fase é -1
-        old_action_info = self.ACTIONS.get(old_action, {"phase": -1, "duration": 0})
-        old_phase = old_action_info["phase"]
-
-        # Lógica de transição de fase com amarelo
-        if step != 0 and old_phase != current_phase and old_phase != -1 and yellow == 0:
-            self.set_yellow_phase(old_phase, name)
-            return self.yellow_duration, 1 # Retorna duração do amarelo e flag yellow=1
+    def choose_phase(self, step, action, old_action, name, yellow):
+        """
+        Decide se aplica amarelo (transição) ou verde.
+        Recebe a FASE (action: 0=NS, 1=EW) e a duração já calculada externamente.
+        Retorna (yellow_flag,) — a duração é gerida pelo caller.
+        """
+        if step != 0 and old_action != action and old_action != -1 and yellow == 0:
+            self.set_yellow_phase(old_action, name)
+            return self.yellow_duration, 1  # duração do amarelo, flag yellow=1
         else:
-            self.set_green_phase(current_phase, name)
-            #dur = sapa.sapa_block(idx, routes, map_env, action) 
-            return chosen_duration, 0 # Retorna duração do verde escolhida e flag yellow=0
-
+            self.set_green_phase(action, name)
+            return 0, 0  # duração = 0 (será preenchida pelo caller), flag yellow=0
 
     def set_green_phase(self, phase_id, TL_NAME):
         if phase_id == 0:
@@ -118,6 +125,10 @@ class Intersection:
             traci.trafficlight.setPhase(TL_NAME, PHASE_NS_YELLOW)
         elif phase_id == 1:
             traci.trafficlight.setPhase(TL_NAME, PHASE_EW_YELLOW)
+
+    # ------------------------------------------------------------------
+    # Construção do estado
+    # ------------------------------------------------------------------
 
     def pedestrians_state(self, state, wz):
         for area in wz[0]:
@@ -144,19 +155,25 @@ class Intersection:
         # Convenção canónica de entrada:
         # - 4 entradas: [N, O, S, E]
         # - 6 entradas: [N1, N2, O, S1, S2, E]
-        # O mapeamento mantém os mesmos grupos cardinais no estado.
         if len(route) == 6:
             return {0: 2, 1: 2, 2: 0, 3: 6, 4: 6, 5: 4}.get(pos, -1)
 
         return {0: 2, 1: 0, 2: 6, 3: 4}.get(pos, -1)
 
     def action_encode(self, state, action):
-        phases = [0] * NUM_ACTIONS
-        if 0 <= action < NUM_ACTIONS:
+        """Codifica a FASE (0 ou 1) em one-hot de 2 dims."""
+        phases = [0] * NUM_ACTIONS_PHASE
+        if 0 <= action < NUM_ACTIONS_PHASE:
             phases[action] = 1
         return np.concatenate([state, phases])
 
     def get_state(self, idx, wz, routes, lanes_200_400, action):
+        """
+        Devolve vetor de estado de dimensão fixa 170:
+          164 (base) + 2 (action_encode de fase) + 4 (lane_occupancy) = 170
+
+        Igual para todos os cruzamentos — usado pelas redes de fase E de duração.
+        """
         thresholds_200 = [7, 15, 25, 35, 55, 70, 100, 130, 150, 200]
         thresholds_400 = [7, 15, 25, 35, 55, 75, 100, 150, 200, 400]
         thresholds_100 = [7, 14, 20, 30, 40, 50, 60, 70, 80, 100]
@@ -197,7 +214,7 @@ class Intersection:
                         state[si] = (state[si] + v / 13.89) / 2
 
         state = self.pedestrians_state(state, wz)
-        state = self.action_encode(state, action)   # +2  -> 166
-        state = self.lane_occupancy(state, lane)    # +6  -> 172
+        state = self.action_encode(state, action)   # +2 → 166
+        state = self.lane_occupancy(state, lane)    # +4 → 170
 
         return state
