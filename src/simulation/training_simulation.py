@@ -2,28 +2,29 @@ import traci
 import numpy as np
 import random
 import timeit
-import os
 import warnings
 
 warnings.filterwarnings("ignore")
 import src.simulation.intersection_manager as intersection_manager
 import tensorflow as tf
+from src.agents.intersection import DURATION_VALUES
 
 
 class Simulation:
     def __init__(self, Model_Cell_1, Model_Cell_2, Model_Duration,
                  Memory_1, Memory_2, Memory_Duration,
                  TrafficGen, PedestrianGen, sumo_cmd, gamma, max_steps,
-                 yellow_duration, num_states, num_actions_phase, num_actions_duration,
+                 yellow_duration,
+                 # ALTERADO: num_states separado em num_states_cell1 e num_states_cell2
+                 # num_states,
+                 num_states_cell1, num_states_cell2, num_states_duration,
+                 num_actions_phase, num_actions_duration,
                  training_epochs):
 
-        # modelos de FASE (Cell_1 → J1+J3, Cell_2 → J2+J4)
-        self._Model_Cell_1 = Model_Cell_1
-        self._Model_Cell_2 = Model_Cell_2
-        # modelo de DURAÇÃO (partilhado por todos os cruzamentos)
+        self._Model_Cell_1   = Model_Cell_1
+        self._Model_Cell_2   = Model_Cell_2
         self._Model_Duration = Model_Duration
 
-        # memórias
         self._Memory_1        = Memory_1
         self._Memory_2        = Memory_2
         self._Memory_Duration = Memory_Duration
@@ -34,20 +35,30 @@ class Simulation:
         self._step          = 0
         self._sumo_cmd      = sumo_cmd
         self._max_steps     = max_steps
-        self._yellow_duration       = yellow_duration
-        self._num_states            = num_states
-        self._num_actions_phase     = num_actions_phase
-        self._num_actions_duration  = num_actions_duration
-        self._training_epochs       = training_epochs
+        self._yellow_duration      = yellow_duration
+        # ALTERADO: guardamos os três num_states separados
+        self._num_states_cell1    = num_states_cell1    # 170 para J1/J3
+        self._num_states_cell2    = num_states_cell2    # 176 para J2/J4
+        self._num_states_duration = num_states_duration # 170 para todos (Cell_Duration)
+        self._num_actions_phase    = num_actions_phase
+        self._num_actions_duration = num_actions_duration
+        self._training_epochs      = training_epochs
 
-        self._model_training_loss_cell_1    = []
-        self._model_training_loss_cell_2    = []
-        self._model_training_loss_duration  = []
+        self._model_training_loss_cell_1   = []
+        self._model_training_loss_cell_2   = []
+        self._model_training_loss_duration = []
 
         self._Pveh = 0.50
         self._Pped = 0.50
 
-        self.intersections  = intersection_manager.create_intersections(self._num_states)
+        # ALTERADO: create_intersections recebe dict com num_states por cruzamento
+        # intersection_manager.create_intersections(self._num_states)
+        self.intersections = intersection_manager.create_intersections({
+            1: self._num_states_cell1,   # J1 → Cell_1 → 170
+            2: self._num_states_cell2,   # J2 → Cell_2 → 176
+            3: self._num_states_cell1,   # J3 → Cell_1 → 170
+            4: self._num_states_cell2,   # J4 → Cell_2 → 176
+        })
         for C in self.intersections.values():
             C.yellow_duration = self._yellow_duration
         self.routes         = intersection_manager.create_routes()
@@ -94,31 +105,33 @@ class Simulation:
                 for idx, C in self.intersections.items():
                     phase_model, _ = self._get_phase_model_and_memory(idx)
 
+                    # estado para rede de fase (170 ou 176 conforme idx)
                     current_state = C.get_state(idx, self.waiting_ped[idx], self.routes,
                                                 self.lanes_110_132, 0)
+                    # ADICIONADO: estado para Cell_Duration (sempre 170)
+                    duration_state = C.get_state_duration(idx, self.waiting_ped[idx], self.routes,
+                                                          self.lanes_110_132, 0)
                     ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
-                    # escolher fase
                     C.action = self._choose_action(current_state, epsilon,
                                                    phase_model, self._num_actions_phase)
-                    # escolher duração
-                    C.action_dur = self._choose_action(current_state, epsilon,
+                    # ALTERADO: Cell_Duration usa duration_state (170) em vez de current_state
+                    C.action_dur = self._choose_action(duration_state, epsilon,
                                                        self._Model_Duration,
                                                        self._num_actions_duration)
 
-                    C.old_state      = current_state
-                    C.old_action     = C.action
-                    C.old_action_dur = C.action_dur
-                    C.old_total_wait = 0
-                    C.old_ped_wait   = ped_wait
+                    C.old_state          = current_state
+                    C.old_duration_state = duration_state  # ADICIONADO: guardar estado de duração
+                    C.old_action         = C.action
+                    C.old_action_dur     = C.action_dur
+                    C.old_total_wait     = 0
+                    C.old_ped_wait       = ped_wait
 
-                    # aplicar fase + duração
                     dur_yellow, C.yellow = C.choose_phase(
                         self._step, C.action, C.old_action, self.tl_names[idx], C.yellow)
                     if C.yellow == 1:
                         C.dur = dur_yellow
                     else:
-                        from src.agents.intersection import DURATION_VALUES
                         C.dur = DURATION_VALUES[C.action_dur]
 
             # ── Step normal ───────────────────────────────────────────
@@ -127,42 +140,46 @@ class Simulation:
                     if C.yellow == 0:
                         phase_model, phase_memory = self._get_phase_model_and_memory(idx)
 
+                        # estado para rede de fase (170 ou 176 conforme idx)
                         current_state = C.get_state(idx, self.waiting_ped[idx], self.routes,
                                                     self.lanes_110_132, C.old_action)
+                        # ADICIONADO: estado para Cell_Duration (sempre 170)
+                        duration_state = C.get_state_duration(idx, self.waiting_ped[idx], self.routes,
+                                                              self.lanes_110_132, C.old_action)
                         current_total_wait = C.collect_waiting_times(self.incoming_roads[idx])
                         ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
                         reward = (self._Pveh * (C.old_total_wait - current_total_wait)
                                   + self._Pped * (C.old_ped_wait - ped_wait))
 
-                        # nova ação de fase
                         C.action = self._choose_action(current_state, epsilon,
                                                        phase_model, self._num_actions_phase)
-                        # nova ação de duração
-                        C.action_dur = self._choose_action(current_state, epsilon,
+                        # ALTERADO: Cell_Duration usa duration_state (170)
+                        C.action_dur = self._choose_action(duration_state, epsilon,
                                                            self._Model_Duration,
                                                            self._num_actions_duration)
 
-                        # guardar experiências
+                        # experiência de fase usa current_state (170 ou 176)
                         phase_memory.add_sample((C.old_state, C.old_action, reward, current_state))
-                        self._Memory_Duration.add_sample((C.old_state, C.old_action_dur, reward, current_state))
+                        # ALTERADO: experiência de duração usa duration_state (sempre 170)
+                        self._Memory_Duration.add_sample((C.old_duration_state, C.old_action_dur,
+                                                          reward, duration_state))
 
-                        C.old_state      = current_state
-                        C.old_action     = C.action
-                        C.old_action_dur = C.action_dur
-                        C.old_total_wait = current_total_wait
-                        C.old_ped_wait   = ped_wait
+                        C.old_state          = current_state
+                        C.old_duration_state = duration_state  # ADICIONADO
+                        C.old_action         = C.action
+                        C.old_action_dur     = C.action_dur
+                        C.old_total_wait     = current_total_wait
+                        C.old_ped_wait       = ped_wait
 
                         if reward < 0:
                             C.sum_neg_reward += reward
 
-                    # aplicar nova fase/duração
                     dur_yellow, C.yellow = C.choose_phase(
                         self._step, C.action, C.old_action, self.tl_names[idx], C.yellow)
                     if C.yellow == 1:
                         C.dur = dur_yellow
                     else:
-                        from src.agents.intersection import DURATION_VALUES
                         C.dur = DURATION_VALUES[C.action_dur]
 
             for C in self.intersections.values():
@@ -180,8 +197,8 @@ class Simulation:
             print("Training...")
             start_time = timeit.default_timer()
             for _ in range(self._training_epochs):
-                self._replay(self._Model_Cell_1, self._model_training_loss_cell_1,   self._Memory_1)
-                self._replay(self._Model_Cell_2, self._model_training_loss_cell_2,   self._Memory_2)
+                self._replay(self._Model_Cell_1,   self._model_training_loss_cell_1,   self._Memory_1)
+                self._replay(self._Model_Cell_2,   self._model_training_loss_cell_2,   self._Memory_2)
                 self._replay(self._Model_Duration, self._model_training_loss_duration, self._Memory_Duration)
             self._Model_Cell_1.copy_weights()
             self._Model_Cell_2.copy_weights()
@@ -214,11 +231,10 @@ class Simulation:
 
         q_s_a = Model.model(states_tf)
 
-        # DDQN: selecionar com main, avaliar com target
-        q_next_online  = Model.model(next_states_tf)
-        next_actions   = tf.cast(tf.argmax(q_next_online, axis=1), tf.int32)
-        q_next_target  = Model.model_target(next_states_tf)
-        indices_next   = tf.stack([tf.range(batch_size), next_actions], axis=1)
+        q_next_online   = Model.model(next_states_tf)
+        next_actions    = tf.cast(tf.argmax(q_next_online, axis=1), tf.int32)
+        q_next_target   = Model.model_target(next_states_tf)
+        indices_next    = tf.stack([tf.range(batch_size), next_actions], axis=1)
         selected_q_next = tf.gather_nd(q_next_target, indices_next)
 
         updates = rewards_tf + self._gamma * selected_q_next

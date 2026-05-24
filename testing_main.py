@@ -23,7 +23,6 @@ if __name__ == "__main__":
     network = config['network']
     real_mode = str(network).upper() in ('REAL', 'BASELINE', 'FIXED')
 
-    # ── Definir pasta de output consoante o modo ──────────────────────────────
     if real_mode:
         model_path = None
         plot_path = os.path.join(
@@ -47,20 +46,19 @@ if __name__ == "__main__":
         Model_Cell_2   = None
         Model_Duration = None
     else:
+        # ALTERADO: input_dim usa num_states_cell1/cell2/duration em vez de num_states único
         Model_Cell_1 = TestModel(
-            input_dim=config['num_states'],
+            input_dim=config['num_states_cell1'],    # 170
             model_path=model_path,
             name="Trained_Cell_1.h5"
         )
         Model_Cell_2 = TestModel(
-            input_dim=config['num_states'],
+            input_dim=config['num_states_cell2'],    # 176
             model_path=model_path,
             name="Trained_Cell_2.h5"
         )
-        # carregar modelo de duração
-        # Mesma input_dim que Cell_1/Cell_2 — estado local de 170 dims igual para todos
         Model_Duration = TestModel(
-            input_dim=config['num_states'],
+            input_dim=config['num_states_duration'], # 170
             model_path=model_path,
             name="Trained_Duration.h5"
         )
@@ -84,10 +82,11 @@ if __name__ == "__main__":
         PedestrianGen,
         sumo_cmd,
         config['max_steps'],
-        # config['green_duration'], 
         config['yellow_duration'],
-        config['num_states'],
-        # config['num_actions'],
+        # ALTERADO: passa os três num_states separados em vez de num_states único
+        config['num_states_cell1'],
+        config['num_states_cell2'],
+        config['num_states_duration'],
         config['num_actions_phase'],
         config['num_actions_duration'],
         config['network'],
@@ -132,9 +131,6 @@ if __name__ == "__main__":
         ylabel='Volume of vehicles (veh/h)'
     )
 
-    # gráficos de duração escolhida pela Cell_Duration por fase por cruzamento
-    # Pedido do professor: "recolherem as durações de cada fase desta nova rede
-    # por cruzamento para observarmos como ela se está a comportar"
     if not real_mode:
         for idx, phase_logs in Simulation.duration_log_stores.items():
             for phase_id, durations in phase_logs.items():

@@ -4,9 +4,6 @@ import os
 import sys
 
 def import_train_configuration(config_file):
-    """
-    Read the config file regarding the training and import its content
-    """
     content = configparser.ConfigParser()
     content.read(config_file)
     config = {}
@@ -15,7 +12,7 @@ def import_train_configuration(config_file):
     config['max_steps'] = content['simulation'].getint('max_steps')
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
     config['n_peds_generated'] = content['simulation'].getint('n_peds_generated')
-    #config['green_duration'] = content['simulation'].getint('green_duration')
+    # config['green_duration'] = content['simulation'].getint('green_duration')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['num_layers'] = content['model'].getint('num_layers')
     config['width_layers'] = content['model'].getint('width_layers')
@@ -24,8 +21,11 @@ def import_train_configuration(config_file):
     config['training_epochs'] = content['model'].getint('training_epochs')
     config['memory_size_min'] = content['memory'].getint('memory_size_min')
     config['memory_size_max'] = content['memory'].getint('memory_size_max')
-    config['num_states'] = content['agent'].getint('num_states')
-    # config['num_actions'] = content['agent'].getint('num_actions')
+    # ALTERADO: num_states separado em três valores
+    # config['num_states'] = content['agent'].getint('num_states')
+    config['num_states_cell1']    = content['agent'].getint('num_states_cell1')
+    config['num_states_cell2']    = content['agent'].getint('num_states_cell2')
+    config['num_states_duration'] = content['agent'].getint('num_states_duration')
     config['num_actions_phase']    = content['agent'].getint('num_actions_phase')
     config['num_actions_duration'] = content['agent'].getint('num_actions_duration')
     config['gamma'] = content['agent'].getfloat('gamma')
@@ -35,9 +35,6 @@ def import_train_configuration(config_file):
     return config
 
 def import_test_configuration(config_file):
-    """
-    Read the config file regarding the testing and import its content
-    """
     content = configparser.ConfigParser()
     content.read(config_file)
     config = {}
@@ -46,11 +43,14 @@ def import_test_configuration(config_file):
     config['n_cars_generated'] = content['simulation'].getint('n_cars_generated')
     config['n_peds_generated'] = content['simulation'].getint('n_peds_generated')
     config['episode_seed'] = content['simulation'].getint('episode_seed')
-    #config['green_duration'] = content['simulation'].getint('green_duration')
+    # config['green_duration'] = content['simulation'].getint('green_duration')
     config['yellow_duration'] = content['simulation'].getint('yellow_duration')
     config['n_agents'] = content['agent'].getint('n_agents')
-    config['num_states'] = content['agent'].getint('num_states')
-    # config['num_actions'] = content['agent'].getint('num_actions')
+    # ALTERADO: num_states separado em três valores
+    # config['num_states'] = content['agent'].getint('num_states')
+    config['num_states_cell1']    = content['agent'].getint('num_states_cell1')
+    config['num_states_cell2']    = content['agent'].getint('num_states_cell2')
+    config['num_states_duration'] = content['agent'].getint('num_states_duration')
     config['num_actions_phase']    = content['agent'].getint('num_actions_phase')
     config['num_actions_duration'] = content['agent'].getint('num_actions_duration')
     config['network'] = content['network']['algorithm']
@@ -61,9 +61,6 @@ def import_test_configuration(config_file):
     return config
 
 def set_sumo(gui, sumocfg_file_name, max_steps):
-    """
-    Configure various parameters of SUMO
-    """
     if 'SUMO_HOME' in os.environ:
         tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
         sys.path.append(tools)
@@ -82,10 +79,6 @@ def set_sumo(gui, sumocfg_file_name, max_steps):
     return sumo_cmd
 
 def set_train_path(models_path_name):
-    """
-    Create a new model path with an incremental integer, also considering previously created model paths.
-    Ignores any files or folders that do not follow the pattern 'model_N'.
-    """
     models_path = os.path.join(os.getcwd(), models_path_name, '')
     os.makedirs(os.path.dirname(models_path), exist_ok=True)
     dir_content = os.listdir(models_path)
@@ -106,9 +99,6 @@ def set_train_path(models_path_name):
     return data_path
 
 def set_test_path(models_path_name, model_n, episode_seed):
-    """
-    Returns a model path that identifies the model number provided as argument and a newly created 'test' path
-    """
     model_folder_path = os.path.join(os.getcwd(), models_path_name, 'model_' + str(model_n), '')
     if os.path.isdir(model_folder_path):
         plot_path = os.path.join(model_folder_path, 'test_' + str(episode_seed), '')

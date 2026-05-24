@@ -29,35 +29,33 @@ if __name__ == "__main__":
     print("GPUs disponíveis:", gpus)
 
     # ── Modelos de FASE ───────────────────────────────────────────────────────
-    # Cell_1: partilhado por J1 e J3 (cruzamentos Av. Marquês de Tomar)
+    # ALTERADO: input_dim usa num_states_cell1/cell2 em vez de num_states único
     Model_Cell_1 = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states'],
-        output_dim=config['num_actions_phase']   # 2 ações: NS ou EW
+        input_dim=config['num_states_cell1'],   # 170: J1/J3 (MT_* 2 lanes)
+        output_dim=config['num_actions_phase']
     )
-    # Cell_2: partilhado por J2 e J4 (cruzamentos Av. 5 de Outubro)
     Model_Cell_2 = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states'],
-        output_dim=config['num_actions_phase']   # 2 ações: NS ou EW
+        input_dim=config['num_states_cell2'],   # 176: J2/J4 (510_* 3 lanes)
+        output_dim=config['num_actions_phase']
     )
 
     # ── Modelo de DURAÇÃO ─────────────────────────────────────────────────────
-    # Partilhado por todos os cruzamentos.
-    # Recebe o estado local (mesma dimensão para todos) e escolhe duração do verde.
+    # ALTERADO: input_dim usa num_states_duration (sempre 170, igual para todos)
     Model_Duration = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states'],
-        output_dim=config['num_actions_duration']  # 4 ações: 8s, 16s, 24s, 32s
+        input_dim=config['num_states_duration'],  # 170: mesma dimensão para todos
+        output_dim=config['num_actions_duration']
     )
 
     # ── Memórias ──────────────────────────────────────────────────────────────
@@ -89,7 +87,10 @@ if __name__ == "__main__":
         config['gamma'],
         config['max_steps'],
         config['yellow_duration'],
-        config['num_states'],
+        # ALTERADO: passa os três num_states separados em vez de um único
+        config['num_states_cell1'],
+        config['num_states_cell2'],
+        config['num_states_duration'],
         config['num_actions_phase'],
         config['num_actions_duration'],
         config['training_epochs']
@@ -97,12 +98,10 @@ if __name__ == "__main__":
 
     timestamp_start = datetime.datetime.now()
 
-    # ── Warm-up (3 episódios aleatórios antes do treino) ──────────────────────
     print("\n----- Warm-up (3 episódios aleatórios)")
     for warm_up_ep in range(3):
         Sim.run(warm_up_ep, epsilon=1.0, train_ON_OFF=0)
 
-    # ── Treino principal ──────────────────────────────────────────────────────
     for episode in range(1, config['total_episodes'] + 1):
         print(f'\n----- Episode {episode} of {config["total_episodes"]}')
         epsilon = 1.0 - (episode / config['total_episodes'])
@@ -114,7 +113,6 @@ if __name__ == "__main__":
     print("----- End time:", datetime.datetime.now())
     print("----- Session info saved at:", path)
 
-    # ── Guardar modelos ───────────────────────────────────────────────────────
     Model_Cell_1.save_model(path, "Trained_Cell_1")
     Model_Cell_2.save_model(path, "Trained_Cell_2")
     Model_Duration.save_model(path, "Trained_Duration")
@@ -122,7 +120,6 @@ if __name__ == "__main__":
     copyfile(src='config/training_settings.ini',
              dst=os.path.join(path, 'training_settings.ini'))
 
-    # ── Gráficos de reward ────────────────────────────────────────────────────
     for idx, rewards in Sim.reward_stores.items():
         Viz.save_data_and_plot(
             data=rewards,
@@ -131,22 +128,6 @@ if __name__ == "__main__":
             ylabel=f'Cumulative negative reward of C{idx}'
         )
 
-    # ── Gráficos de loss ──────────────────────────────────────────────────────
-    Viz.save_data_and_plot(
-        data=Sim.model_loss_cell_1,
-        filename='MSE Loss Cell 1',
-        xlabel='Episode',
-        ylabel='Loss'
-    )
-    Viz.save_data_and_plot(
-        data=Sim.model_loss_cell_2,
-        filename='MSE Loss Cell 2',
-        xlabel='Episode',
-        ylabel='Loss'
-    )
-    Viz.save_data_and_plot(
-        data=Sim.model_loss_duration,
-        filename='MSE Loss Duration',
-        xlabel='Episode',
-        ylabel='Loss'
-    )
+    Viz.save_data_and_plot(data=Sim.model_loss_cell_1,   filename='MSE Loss Cell 1',   xlabel='Episode', ylabel='Loss')
+    Viz.save_data_and_plot(data=Sim.model_loss_cell_2,   filename='MSE Loss Cell 2',   xlabel='Episode', ylabel='Loss')
+    Viz.save_data_and_plot(data=Sim.model_loss_duration, filename='MSE Loss Duration', xlabel='Episode', ylabel='Loss')

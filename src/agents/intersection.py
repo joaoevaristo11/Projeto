@@ -16,7 +16,13 @@ DURATION_VALUES      = [8, 16, 24, 32]
 
 NUM_ACTIONS = NUM_ACTIONS_PHASE   # mantido para compatibilidade com action_encode (usa NUM_ACTIONS_PHASE)
 MAX_EDGES   = 4                   # todas as routes têm 4 edges
-# num_states = 164 (base) + 2 (action_encode) + 4 (lane_occupancy) = 170
+
+# num_states Cell_1 (C1/C3): 164 (base) + 2 (action_encode) + 4  (lane_occupancy média)     = 170
+# num_states Cell_2 (C2/C4): 164 (base) + 2 (action_encode) + 10 (lane_occupancy por lane)  = 176
+# num_states Cell_Duration:  170 (igual a Cell_1, mesma dimensão para todos os cruzamentos)
+
+# cruzamentos que usam lane_occupancy por lane (têm edges com 3 lanes)
+INTERSECTIONS_PER_LANE = {2, 4}  # J2 e J4 — edges 510_* têm 3 lanes
 
 
 class Intersection:
@@ -36,8 +42,9 @@ class Intersection:
         self.wait_veh = 0
         self.wait_ped = 0
         self.old_state = None
-        self.old_action = -1           # fase anterior
-        self.old_action_dur = -1       # duração anterior
+        self.old_duration_state = None  # ADICIONADO: estado 170-dim para Cell_Duration
+        self.old_action = -1            # fase anterior
+        self.old_action_dur = -1        # duração anterior
         self.old_total_wait = 0
         self.old_ped_wait = 0
 
@@ -84,11 +91,14 @@ class Intersection:
             return [f"{edge_id}_0"]
 
     # ------------------------------------------------------------------
-    # Ocupação de faixas (4 valores fixos → mesma dimensão para todos)
+    # Ocupação de faixas
     # ------------------------------------------------------------------
 
     def lane_occupancy(self, state, routes):
-        """Adiciona MAX_EDGES valores de ocupacao ao estado (padding com 0 se route < MAX_EDGES)."""
+        """
+        C1/C3: adiciona 4 valores de ocupação (média por edge) → +4 dims.
+        Também usado pela Cell_Duration para todos os cruzamentos (dimensão fixa).
+        """
         occupancy_array = np.zeros(MAX_EDGES)
         for i, edge_id in enumerate(routes):
             if i >= MAX_EDGES:
@@ -96,6 +106,18 @@ class Intersection:
             lane_ids = self._get_lane_ids(edge_id)
             occupancy_array[i] = np.mean([traci.lane.getLastStepOccupancy(lid) for lid in lane_ids])
         return np.concatenate([state, occupancy_array])
+
+    def lane_occupancy_per_lane(self, state, routes):
+        """
+        C2/C4: adiciona ocupação por lane individual → +10 dims.
+        510_NS_1: 3 + EG_WE_2: 2 + 510_SN_2: 3 + EG_EW_1: 2 = 10 valores
+        """
+        occupancy_list = []
+        for edge_id in routes[:MAX_EDGES]:
+            lane_ids = self._get_lane_ids(edge_id)
+            for lid in lane_ids:
+                occupancy_list.append(traci.lane.getLastStepOccupancy(lid))
+        return np.concatenate([state, np.array(occupancy_list)])
 
     # ------------------------------------------------------------------
     # Lógica de fases
@@ -105,14 +127,14 @@ class Intersection:
         """
         Decide se aplica amarelo (transição) ou verde.
         Recebe a FASE (action: 0=NS, 1=EW) e a duração já calculada externamente.
-        Retorna (yellow_flag,) — a duração é gerida pelo caller.
+        Retorna (dur, yellow_flag) — a duração é gerida pelo caller.
         """
         if step != 0 and old_action != action and old_action != -1 and yellow == 0:
             self.set_yellow_phase(old_action, name)
-            return self.yellow_duration, 1  # duração do amarelo, flag yellow=1
+            return self.yellow_duration, 1
         else:
             self.set_green_phase(action, name)
-            return 0, 0  # duração = 0 (será preenchida pelo caller), flag yellow=0
+            return 0, 0
 
     def set_green_phase(self, phase_id, TL_NAME):
         if phase_id == 0:
@@ -152,9 +174,6 @@ class Intersection:
         except ValueError:
             return -1
 
-        # Convenção canónica de entrada:
-        # - 4 entradas: [N, O, S, E]
-        # - 6 entradas: [N1, N2, O, S1, S2, E]
         if len(route) == 6:
             return {0: 2, 1: 2, 2: 0, 3: 6, 4: 6, 5: 4}.get(pos, -1)
 
@@ -167,13 +186,8 @@ class Intersection:
             phases[action] = 1
         return np.concatenate([state, phases])
 
-    def get_state(self, idx, wz, routes, lanes_200_400, action):
-        """
-        Devolve vetor de estado de dimensão fixa 170:
-          164 (base) + 2 (action_encode de fase) + 4 (lane_occupancy) = 170
-
-        Igual para todos os cruzamentos — usado pelas redes de fase E de duração.
-        """
+    def _build_base_state(self, idx, wz, routes, lanes_200_400, action):
+        """Constrói os 166 dims base (164 + 2 action_encode) comuns a todos os métodos."""
         thresholds_200 = [7, 15, 25, 35, 55, 70, 100, 130, 150, 200]
         thresholds_400 = [7, 15, 25, 35, 55, 75, 100, 150, 200, 400]
         thresholds_100 = [7, 14, 20, 30, 40, 50, 60, 70, 80, 100]
@@ -214,7 +228,27 @@ class Intersection:
                         state[si] = (state[si] + v / 13.89) / 2
 
         state = self.pedestrians_state(state, wz)
-        state = self.action_encode(state, action)   # +2 → 166
-        state = self.lane_occupancy(state, lane)    # +4 → 170
+        state = self.action_encode(state, action)  # +2 → 166
+        return state, lane
 
-        return state
+    def get_state(self, idx, wz, routes, lanes_200_400, action):
+        """
+        Estado para redes de fase:
+          C1/C3 (idx=1,3): 166 + 4  = 170  (lane_occupancy média)
+          C2/C4 (idx=2,4): 166 + 10 = 176  (lane_occupancy por lane)
+        """
+        state, lane = self._build_base_state(idx, wz, routes, lanes_200_400, action)
+
+        if idx in INTERSECTIONS_PER_LANE:
+            return self.lane_occupancy_per_lane(state, lane)  # → 176
+        else:
+            return self.lane_occupancy(state, lane)            # → 170
+
+    def get_state_duration(self, idx, wz, routes, lanes_200_400, action):
+        """
+        Estado para Cell_Duration: sempre 170 dims para todos os cruzamentos.
+        Usa lane_occupancy com média independentemente do cruzamento,
+        conforme pedido pelo professor ("mesma dimensão para todos").
+        """
+        state, lane = self._build_base_state(idx, wz, routes, lanes_200_400, action)
+        return self.lane_occupancy(state, lane)  # → 170 para todos

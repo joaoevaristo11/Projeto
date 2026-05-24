@@ -15,40 +15,44 @@ Volume_Lanes = [
     '510_NS_1', '510_SN_1', 'VV_WE_1', 'VV_EW_1',
 ]
 
+
 class Simulation:
-    # ALTERADO: __init__ recebe Model_Duration como novo parâmetro
-    # ALTERADO: num_actions separado em num_actions_phase (2) e num_actions_duration (4)
-    # def __init__(self, Model_1, Model_2, TrafficGen, PedestrianGen, sumo_cmd, max_steps,
-    #              yellow_duration, num_states, num_actions, network, n_agents):
     def __init__(self, Model_1, Model_2, Model_Duration,
                  TrafficGen, PedestrianGen, sumo_cmd, max_steps,
-                 yellow_duration, num_states, num_actions_phase, num_actions_duration,
+                 yellow_duration,
+                 # ALTERADO: num_states separado em num_states_cell1, num_states_cell2, num_states_duration
+                 # num_states, num_actions_phase, num_actions_duration,
+                 num_states_cell1, num_states_cell2, num_states_duration,
+                 num_actions_phase, num_actions_duration,
                  network, n_agents):
 
-        # self.eye = None  # REMOVIDO: era usado pelo actor (MARL), já não se aplica
         self._Model_Cell_1   = Model_1
         self._Model_Cell_2   = Model_2
-        #modelo de duração partilhado por todos os cruzamentos
         self._Model_Duration = Model_Duration
 
-        self._TrafficGen = TrafficGen
+        self._TrafficGen    = TrafficGen
         self._PedestrianGen = PedestrianGen
-        self._step = 0
-        self._sumo_cmd = sumo_cmd
-        self._max_steps = max_steps
-        # self._green_duration = green_duration 
-        self._yellow_duration = yellow_duration
-        self._num_states = num_states
-        # agora guardamos os dois num_actions separados
-        # self._num_actions = num_actions
-        self._num_actions_phase = num_actions_phase
+        self._step          = 0
+        self._sumo_cmd      = sumo_cmd
+        self._max_steps     = max_steps
+        self._yellow_duration      = yellow_duration
+        # ALTERADO: três num_states separados
+        self._num_states_cell1    = num_states_cell1    # 170 para J1/J3
+        self._num_states_cell2    = num_states_cell2    # 176 para J2/J4
+        self._num_states_duration = num_states_duration # 170 para Cell_Duration
+        self._num_actions_phase    = num_actions_phase
         self._num_actions_duration = num_actions_duration
-        self._type_Network = network
-        self._n_agents = n_agents
+        self._type_Network  = network
+        self._n_agents      = n_agents
 
-        self.intersections  = intersection_manager.create_intersections(self._num_states)
+        # ALTERADO: create_intersections recebe dict com num_states por cruzamento
+        self.intersections = intersection_manager.create_intersections({
+            1: self._num_states_cell1,
+            2: self._num_states_cell2,
+            3: self._num_states_cell1,
+            4: self._num_states_cell2,
+        })
         for C in self.intersections.values():
-            # C.green_duration = self._green_duration  
             C.yellow_duration = self._yellow_duration
         self.routes         = intersection_manager.create_routes()
         self.waiting_ped    = intersection_manager.create_waiting_zones()
@@ -70,11 +74,7 @@ class Simulation:
         cycle = 60
         return ((self._step // cycle) + self._real_offsets.get(idx, 0)) % 2
 
-    # renomeei de _get_model() para _get_phase_model() por clareza
-    # def _get_model(self, idx):
-    #     return self._Model_Cell_1 if idx in (1, 3) else self._Model_Cell_2
     def _get_phase_model(self, idx):
-        """Cell_1 para J1/J3; Cell_2 para J2/J4."""
         return self._Model_Cell_1 if idx in (1, 3) else self._Model_Cell_2
 
     def run(self, episode):
@@ -92,7 +92,6 @@ class Simulation:
             for idx, C in self.intersections.items():
 
                 if self._is_real_mode():
-                    # Modo REAL: alternância cíclica NS/EW sem rede neuronal — inalterado
                     C.action = self._real_action_for_step(idx)
                     C.set_green_phase(C.action, self.tl_names[idx])
                     if C.old_action != C.action:
@@ -101,48 +100,42 @@ class Simulation:
                     C.old_action = C.action
 
                 else:
-                    # Modo inteligente: Cell_1/Cell_2 para fase + Cell_Duration para duração
                     if C.dur == 0 or C.dur == -1:
                         if C.yellow == 0:
+                            # estado para rede de fase (170 ou 176 conforme idx)
                             current_state = C.get_state(
                                 idx, self.waiting_ped[idx], self.routes,
                                 self.lanes_110_132, C.old_action
                             )
+                            # ADICIONADO: estado para Cell_Duration (sempre 170)
+                            duration_state = C.get_state_duration(
+                                idx, self.waiting_ped[idx], self.routes,
+                                self.lanes_110_132, C.old_action
+                            )
 
-                            # Cell_1/Cell_2 escolhe a fase (NS ou EW)
-                            # era _get_model(), agora _get_phase_model()
                             phase_model = self._get_phase_model(idx)
                             C.action = int(np.argmax(phase_model.predict_one(current_state)))
 
-                            # Cell_Duration escolhe a duração do verde
-                            # Usa o mesmo estado local — mesma dimensão para todos os cruzamentos
+                            # ALTERADO: Cell_Duration usa duration_state (170) em vez de current_state
                             C.action_dur = int(np.argmax(
-                                self._Model_Duration.predict_one(current_state)
+                                self._Model_Duration.predict_one(duration_state)
                             ))
 
-                        # choose_phase já não recebe sapa/routes/map_env
-                        # C.dur, C.yellow = C.choose_phase(self._step, C.action, C.old_action,
-                        #     self.tl_names[idx], C.yellow, idx, self.routes, self.map_env, self.sapa)
                         dur_yellow, C.yellow = C.choose_phase(
                             self._step, C.action, C.old_action,
                             self.tl_names[idx], C.yellow
                         )
 
-                        # duração vem de DURATION_VALUES[action_dur] em vez do SAPA
                         if C.yellow == 1:
-                            C.dur = dur_yellow          # duração do amarelo (fixa)
+                            C.dur = dur_yellow
                         else:
-                            C.dur = DURATION_VALUES[C.action_dur]   # duração escolhida pela rede
+                            C.dur = DURATION_VALUES[C.action_dur]
 
                         C.old_action = C.action
 
-                        # ALTERADO: C.dur != 4 → C.yellow == 0
-                        # A condição antiga estava hardcoded para o amarelo de 4s; a nova é semântica
-                        # if C.dur != 4:
                         if C.yellow == 0:
                             C.phase_duration[C.action] += C.dur
                             C.n_times_active[C.action] += 1
-
                             C.duration_log[C.action].append(DURATION_VALUES[C.action_dur])
 
                     if C.dur > 0:
@@ -225,17 +218,6 @@ class Simulation:
     def _get_queue_length(self, idx, queue):
         queue.append(sum(traci.edge.getLastStepHaltingNumber(r) for r in self.incoming_roads[idx]))
 
-    # REMOVIDO: _choose_action com lógica DQN/actor — simplificado direto no run()
-    # def _choose_action(self, state, idx, model):
-    #     if self._type_Network == 'DQN':
-    #         return np.argmax(model.predict_one(state))
-    #     else:
-    #         agent_pos = idx - 1
-    #         obs = state.astype(np.float32)[None, :]
-    #         oh  = self.eye[agent_pos][None, :]
-    #         a, _, _ = model.actor.act(obs=obs, agent_onehot=oh, deterministic=True)
-    #         return int(a[0])
-
     # ── Properties ────────────────────────────────────────────────────────────
 
     @property
@@ -270,7 +252,6 @@ class Simulation:
     def vol_lanes(self):
         return self._volume_por_lane
 
-    # ADICIONADO: expõe os logs de duração por fase por cruzamento (pedido pelo professor)
     @property
     def duration_log_stores(self):
         return {idx: C.duration_log for idx, C in self.intersections.items()}
