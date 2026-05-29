@@ -19,9 +19,6 @@ class PedestrianGenerator:
           Total  : 2712 ped/h 100%
 
         Dentro de cada cruzamento, as 4 rotas sao equiprovaveis (25% cada).
-
-        NOTA: Adicionar ao sumo_config.sumocfg:
-            <route-files value="episode_routes.rou.xml,pedestrian_routes.rou.xml"/>
         """
         np.random.seed(seed)  # make tests reproducible
 

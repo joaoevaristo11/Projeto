@@ -15,7 +15,8 @@ from src.utils.utils import import_test_configuration, set_sumo, set_test_path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test trained DDQN models')
-    parser.add_argument('--config', type=str, default='config/testing_settings.ini', help='Path to configuration file')
+    parser.add_argument('--config', type=str, default='config/testing_settings.ini',
+                        help='Path to configuration file')
     args = parser.parse_args()
 
     config = import_test_configuration(config_file=args.config)
@@ -46,22 +47,23 @@ if __name__ == "__main__":
         Model_Cell_2   = None
         Model_Duration = None
     else:
-        # ALTERADO: input_dim usa num_states_cell1/cell2/duration em vez de num_states único
         Model_Cell_1 = TestModel(
-            input_dim=config['num_states_cell1'],    # 170
+            input_dim=config['num_states_cell1'],   # 84
             model_path=model_path,
             name="Trained_Cell_1.h5"
         )
         Model_Cell_2 = TestModel(
-            input_dim=config['num_states_cell2'],    # 176
+            input_dim=config['num_states_cell2'],   # 124
             model_path=model_path,
             name="Trained_Cell_2.h5"
         )
-        Model_Duration = TestModel(
-            input_dim=config['num_states_duration'], # 170
-            model_path=model_path,
-            name="Trained_Duration.h5"
-        )
+        # DESATIVADO: carregar modelo de duração
+        # Model_Duration = TestModel(
+        #     input_dim=config['num_states_duration'],  # 170
+        #     model_path=model_path,
+        #     name="Trained_Duration.h5"
+        # )
+        Model_Duration = None  # substituído por duração fixa (16s) na simulation
 
     TrafficGen = TrafficGenerator(
         config['max_steps'],
@@ -77,16 +79,15 @@ if __name__ == "__main__":
     Simulation = Simulation(
         Model_Cell_1,
         Model_Cell_2,
-        Model_Duration,
+        Model_Duration,      # None — Cell_Duration desativada
         TrafficGen,
         PedestrianGen,
         sumo_cmd,
         config['max_steps'],
         config['yellow_duration'],
-        # ALTERADO: passa os três num_states separados em vez de num_states único
-        config['num_states_cell1'],
-        config['num_states_cell2'],
-        config['num_states_duration'],
+        config['num_states_cell1'],      # 84
+        config['num_states_cell2'],      # 124
+        config['num_states_duration'],   # mantido no config mas não usado
         config['num_actions_phase'],
         config['num_actions_duration'],
         config['network'],

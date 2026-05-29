@@ -35,195 +35,149 @@ Raiz do projeto (principais ficheiros/dirs):
 
 - `training_main.py` — script de treino principal (config usa `config/training_settings.ini`).
 - `testing_main.py` — script de teste/avaliação (config usa `config/testing_settings.ini`).
-- `requirements.txt` — dependências Python: TensorFlow, numpy, matplotlib, pandas, openpyxl.
-- `sumo/` — ficheiros SUMO (rede, configuração, templates de rotas geradas).
-- `models/` — diretório onde cada treino cria `model_N/` com os `.h5` guardados.
-- `src/agents/` — módulo dos agentes e infra-estrutura RL:
-  - `model.py` — definição das classes `TrainModel` e `TestModel` (Keras/TensorFlow).
-  - `memory.py` — experiência replay buffer.
-  - `intersection.py` — classe `Intersection`: construção de estado, lógica de fases e utilitários.
-- `src/simulation/` — lógica de simulação / orquestração:
-  - `training_simulation.py` — loop de treino (coleta de experiências, replay, atualização de target).
-  - `testing_simulation.py` — loop de teste e recolha de métricas.
-  - `generator.py` / `ped_generator.py` — geradores de rotas veículos/pedestres.
-  - `intersection_manager.py` — fábrica de interseções, rotas, zonas pedestres.
-- `src/utils/` — utilitários: configuração (`utils.py`) e visualização (`visualization.py`).
-- `analysis/` — scripts de processamento pós-experimento e comparação de gráficos.
+TLCS — Traffic Light Control System (DDQN)
 
-Componentes Principais (o que faz cada ficheiro)
---
-- `src/agents/model.py`:
-  - `TrainModel`: constrói duas redes idênticas (`model` e `model_target`), métodos de inferência (`predict_one`), treino por batch (`train_batch`) e salvar modelo (`save_model`).
-  - Arquitetura: Fully connected, camada de entrada com dimensão igual a `num_states` (170), duas camadas hidden de 256 ReLU (configurável), saída linear com `num_actions` (2 para fase, 4 para duração).
+**Resumo**
+Este repositório contém uma implementação multi-agente para controlo adaptativo de semáforos urbanos baseada em Deep Reinforcement Learning (DDQN). A simulação usa SUMO (TraCI) para modelar tráfego de veículos e peões em quatro cruzamentos; o objetivo é minimizar tempos de espera, filas e interrupções, aprendendo políticas de fase e duração.
 
-- `src/agents/memory.py`:
-  - Buffer FIFO simples com `add_sample()` e `get_samples(n)`. Política de amostragem: `random.sample` uniforme.
-  - Observação: armazena `(state, action, reward, next_state)` (sem flag `done` porque episódios têm horizonte fixo).
+**Índice**
+- **Visão Geral**
+- **Principais Características**
+- **Estrutura do Repositório**
+- **Instalação & Requisitos**
+- **Configuração**
+- **Como Executar**
+- **Arquitetura e Implementação**
+- **Redes Neuronais & Algoritmo (DDQN)**
+- **Estado, Ações e Recompensa**
+- **Outputs e Formatos**
+- **Análise, Resultados e Visualização**
+- **Limitações & Melhorias Recomendadas**
+- **Contribuir**
+- **Licença & Contacto**
 
-- `src/agents/intersection.py`:
-  - Construção do estado fixo de 170 dims: representação de células de espaço/posição de veículos, velocidades agregadas normalizadas, indicadores de peões em zonas.
-  - Métodos para aplicar fases e amarelos via `traci`.
+**Visão Geral**
+- Objetivo: aprender políticas locais para gerir fases e durações de semáforos que reduzam espera de veículos e peões.
+- Abordagem: três redes DDQN (duas para seleção de fase, uma para seleção de duração) com Experience Replay e target networks.
 
-- `src/simulation/training_simulation.py`:
-  - Orquestra o episódio: gera rotas, inicializa fases, recolhe estados e recompensas, armazena experiências nas memórias, executa `self._replay()` para treinar redes.
-  - Implementa o update DDQN: seleção com rede principal, avaliação com target network, calcula `updates = r + gamma * Q_target(s', argmax Q_online(s'))`, atualiza só a Q do par (s,a) e treina com `train_on_batch`.
+**Principais Características**
+- Multi-agente: 4 agentes distribuídos (J1..J4) partilham 3 modelos (Cell_1, Cell_2, Duration).
+- Separação de decisões: fase (NS/EW) e duração do verde (discretizada).
+- Implementação em TensorFlow/Keras com Huber loss e Adam optimizer.
+- Integração com SUMO via TraCI para simulações realistas.
 
-- `src/simulation/testing_simulation.py`:
-  - Executa simulação em modo GREEDY (ou modo REAL/BASELINE que não usa redes) e exporta métricas e gráficos por interseção.
+**Estrutura do Repositório**
+- **[training_main.py](training_main.py)**: script principal para treino (usa `config/training_settings.ini`).
+- **[testing_main.py](testing_main.py)**: script de teste/avaliação (usa `config/testing_settings.ini`).
+- **[requirements.txt](requirements.txt)**: dependências Python.
+- **config/**: ficheiros de configuração (`training_settings.ini`, `testing_settings.ini`).
+- **src/agents/**: implementação das redes e do replay buffer ([src/agents/model.py](src/agents/model.py)).
+- **src/simulation/**: orquestração das simulações de treino e teste ([src/simulation/training_simulation.py](src/simulation/training_simulation.py)).
+- **src/utils/**: utilitários e visualização.
+- **models/**: modelos treinados e pastas com logs/plots.
+- **sumo/**: rede SUMO, rotas e ficheiros de configuração.
+- **analysis/**: scripts de pós-processamento e comparação de resultados.
 
-Arquitetura do Sistema
---
-Top-level: SUMO <-> TraCI <-> Simulation (Python). A simulação instancia 4 objetos `Intersection` e usa 3 redes DDQN:
+**Instalação & Requisitos**
+- Sistema: Windows / Linux (SUMO necessário para simulação).
+- Python: 3.10+.
+- Dependências: ver **[requirements.txt](requirements.txt)** (TensorFlow >= 2.10, numpy, pandas, matplotlib, openpyxl).
+- SUMO: instalar e configurar `SUMO_HOME` (https://www.eclipse.org/sumo/). `traci` é usado para comunicação com o simulador.
 
-- `Model_Cell_1` controla agentes J1 e J3 (mesma política de fase).
-- `Model_Cell_2` controla agentes J2 e J4.
-- `Model_Duration` é uma rede separada que escolhe a duração do verde (valores discretos).
-
-Redes Neuronais e Algoritmo (DDQN)
---
-Resumo técnico:
-
-- Algoritmo: Deep Double Q-Learning (DDQN). Implementação padrão: duas redes (online/main e target). A seleção da ação é feita pela rede online e a avaliação do Q-target é através da rede target para reduzir sobreestimação.
-- Arquitetura por rede:
-  - Input: `num_states = 170`
-  - Hidden: `num_layers = 2`, `width_layers = 256` (configurável em `config/training_settings.ini`).
-  - Output: `num_actions_phase = 2` (phase networks) ou `num_actions_duration = 4` (duration network).
-  - Função de perda: Huber loss (reduz sensibilidade a outliers).
-  - Otimizador: Adam (learning_rate = 0.0001).
-
-Hiperparâmetros (valores por defeito em `config/training_settings.ini`):
-
-- `total_episodes = 300`
-- `max_steps = 3600` (1h simulação)
-- `gamma = 0.90`
-- `batch_size = 128`
-- `training_epochs = 50` (iterações de replay por episódio)
-- `memory_size_min = 600`, `memory_size_max = 100000`
-- `learning_rate = 0.0001`
-
-Detalhes da atualização (código em `src/simulation/training_simulation.py`):
-
-1. Amostrar mini-batch de transições: (s, a, r, s').
-2. Computar `q_next_online = Q_online(s')` e `next_actions = argmax(q_next_online, axis=1)`.
-3. Computar `q_next_target = Q_target(s')` e selecionar `selected_q_next = q_next_target[range, next_actions]`.
-4. Targets: `y = r + gamma * selected_q_next`.
-5. Substituir apenas os Q-values das ações tomadas em `q_s_a` por `y` e treinar `train_on_batch(states, targets)`.
-
-Estado, Ações e Recompensa
---
-Estado (`get_state` em `src/agents/intersection.py`): vetor fixo de 170 elementos composto por:
-
-- 164 features base: marcação binária de presença por células espaciais, velocidades agregadas normalizadas, informação de peões em zonas.
-- 2 features: one-hot da ação anterior (fase) — isto introduz histórico explícito da ação anterior.
-- 4 features: ocupação média das faixas de entrada (padding até 4 entradas).
-
-Ações:
-
-- Fase (por decisão): 2 ações — `0 = NS green`, `1 = EW green`.
-- Duração (por decisão): 4 ações — índices mapeados para `DURATION_VALUES = [8, 16, 24, 32]` segundos.
-
-Recompensa (em `training_simulation.py`): combinação linear:
-
-`reward = Pveh * (old_total_wait - current_total_wait) + Pped * (old_ped_wait - ped_wait)`
-
-com `Pveh = 0.5` e `Pped = 0.5` por defeito. Interpretação: positivo se as esperas diminuem.
-
-Fluxo de Treino (resumido)
---
-
-1. Warm-up: 3 episódios com epsilon=1.0 sem treino (coleção inicial de experiências).
-2. Para cada episódio (1..300):
-   - Gerar ficheiros de rotas de veículos e peões (seed = episode).
-   - Executar a simulação por `max_steps` passos, a cada decisão recolher estado e reward e armazenar amostras nas memórias.
-   - No final do episódio, executar `training_epochs` repetições de `_replay()` para cada uma das 3 redes.
-   - Após treino, copiar pesos da rede online para a target (sincronização completa).
-3. Guardar modelos em `models/model_N/Trained_Cell_1.h5`, etc.
-
-Fluxo de Teste
---
-
-1. Em `testing_main.py`, prepara caminho de teste (`models/model_N/test_seed`).
-2. Se `network` for `REAL/BASELINE/FIXED`, executa regras heurísticas; caso contrário carrega `Trained_Cell_1.h5`, `Trained_Cell_2.h5` e `Trained_Duration.h5`.
-3. Executa simulação com política greedy (argmax) e recolhe métricas por interseção: filas, tempos médios de espera, velocidades, logs de durações por fase.
-
-Como executar (ambiente e passos)
---
-Requisitos
-
-- Python 3.10+ com TensorFlow >= 2.10 (recomendado). Ver `requirements.txt`.
-- SUMO (definir `SUMO_HOME` no ambiente e instalar a versão compatível). Instruções do SUMO: https://www.eclipse.org/sumo/
-
-Instalação rápida (Windows / PowerShell):
+Instalação rápida (PowerShell):
 
 ```powershell
 python -m venv .venv
-.\\.venv\\Scripts\\activate
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-Configurar SUMO (exemplo):
+Configurar SUMO (exemplo Windows):
 
 ```powershell
-setx SUMO_HOME "C:\\Program Files (x86)\\Eclipse\\Sumo"
+setx SUMO_HOME "C:\Program Files (x86)\Eclipse\Sumo"
 ```
 
-Treino
+**Configuração**
+- Os ficheiros de configuração principais estão em **config/**:
+  - **[config/training_settings.ini](config/training_settings.ini)** — hiperparâmetros de treino, paths, memória, rede.
+  - **[config/testing_settings.ini](config/testing_settings.ini)** — parâmetros de teste e paths.
+
+Ver e ajustar: número de episódios, tamanho do batch, dimensão das redes (`num_layers`, `width_layers`), seeds e paths de saída.
+
+**Como Executar**
+- Treino (exemplo):
 
 ```bash
 python training_main.py --config config/training_settings.ini
 ```
 
-Isto irá criar uma nova pasta `models/model_<N>/` com os `*.h5` e logs/plots.
-
-Teste
+- Teste/avaliação (exemplo):
 
 ```bash
 python testing_main.py --config config/testing_settings.ini
 ```
 
-Observações de execução
-- Se estiveres em Windows e tens múltiplas versões de Python, usa `py -3.x` conforme necessário.
-- O SUMO deve estar instalado e `SUMO_HOME` configurado antes de correr qualquer simulação.
+**Arquitetura e Implementação**
+- Loop principal de treino está em **[src/simulation/training_simulation.py](src/simulation/training_simulation.py)**. Aqui ocorre:
+  - geração de rotas (vehicles + pedestrians), execução passo-a-passo com `traci`;
+  - recolha de estados e recompensas por interseção;
+  - armazenamento de transições nas memórias e execução do _replay_ para treino das redes;
+  - sincronização dos pesos do `model` para o `model_target`.
 
-Formato de ficheiros de output
---
-- `models/model_N/Trained_Cell_1.h5` — Keras HDF5 do modelo de fase
-- `models/model_N/Trained_Cell_2.h5` — idem
-- `models/model_N/Trained_Duration.h5` — modelo de duração
-- `models/model_N/*.txt` e `plot_*.png` — métricas e gráficos guardados por `Visualization`.
+- Modelos (ver **[src/agents/model.py](src/agents/model.py)**):
+  - `TrainModel`: constrói `model` e `model_target` com camadas Dense (ReLU) e saída linear;
+  - arquitetura padrão: input dim = 170 (ou 176 para alguns cruzamentos), `num_layers = 2`, `width_layers = 256`;
+  - perda: Huber; otimizador: Adam.
 
-Análise e Visualização
---
-- O diretório `analysis/` contém scripts para agregar resultados em Excel e gerar comparações gráficas entre estratégias (e.g., `graphics_comparation.py`).
-- `src/utils/visualization.py` gera `.txt` com séries temporais e `.png` para cada métrica.
+**Redes Neuronais & Algoritmo (DDQN)**
+- Implementação Double DQN:
+  - Ação selecionada por `Q_online` (argmax), valor avaliado por `Q_target` para reduzir sobreestimação.
+  - Atualização dos alvos respetivos aos pares (s, a) com `y = r + gamma * Q_target(s', argmax Q_online(s'))`.
+  - Treino por batch com `train_on_batch` e repetição de `_replay()` por `training_epochs` no final do episódio.
 
-Limitações conhecidas e Sugestões de Melhoria
---
-1. Replay Buffer não inclui flag `done` (terminal). Neste cenário de horizonte fixo isto é aceitável, mas para maior generalidade e correção convém armazenar `(state, action, reward, next_state, done)` e tratar `done` no cálculo de target: `y = r` se `done` else `r + gamma * ...`.
-2. A codificação do estado inclui a `action` anterior (2 dims). Isto pode ser intencional para dar contexto, mas distorce a natureza Markoviana do estado. Avaliar remover ou transformar para histórico limitado.
-3. Epsilon decai até 0.0 ao final dos episódios — recomenda-se manter um mínimo (`epsilon_min`, ex. 0.05) para evitar convergência demasiado prematura.
-4. A atualização do target network é feita após todas as `training_epochs` do episódio; actualizar a cada N passos ou episódios com uma frequência ajustável pode melhorar estabilidade.
-5. Recompensa pondera veículos e peões 50/50. Considerar pesos proporcionais ao volume ou multi-objetivo com Pareto/frontier.
+Hiperparâmetros por defeito (ver **config/**):
+- `total_episodes`, `max_steps`, `gamma`, `batch_size`, `training_epochs`, `memory_size_min/max`, `learning_rate`.
 
-Contribuição
---
-- Para contribuir, cria um fork, faz uma branch com o teu feature/bugfix e submete um Pull Request com descrição clara.
-- Para mudanças que afectem treino ou arquitetura de rede, inclui experimentos e logs comparativos.
+**Estado, Ações e Recompensa**
+- Estado: vetor fixo (170 ou 176 dimensões) com representação espacial de veículos, velocidades normalizadas, indicadores de peões e histórico curto (ação anterior).
+- Ações:
+  - Fase: 2 ações — `0 = NS`, `1 = EW`.
+  - Duração: 4 ações — mapeadas para valores discretos (ex.: [8, 16, 24, 32]s).
+- Recompensa: combinação linear entre redução de espera de veículos e peões:
 
-Contacto
---
-- Autor / Equipa do projeto: ver metadados do repositório (ou contacta quem te passou este código).
+```
+reward = Pveh * (old_total_wait - current_total_wait) + Pped * (old_ped_wait - ped_wait)
+```
 
-Licença
---
-- Inclui aqui a licença do projeto se aplicável (MIT/BSD/Proprietary). Se não estiver definida, adiciona um ficheiro `LICENSE`.
+com `Pveh = 0.5` e `Pped = 0.5` por omissão (ajustável em código/config).
 
-Notas finais
---
-Este README documenta de forma completa a arquitetura, decisões de design e fluxo de treino/teste do projeto. Se quiseres, posso também:
+**Outputs e Formatos**
+- Modelos guardados: `models/model_<N>/Trained_Cell_1.h5`, `Trained_Cell_2.h5`, `Trained_Duration.h5`.
+- Métricas/plots: ficheiros `.txt` e `.png` gerados por `Visualization` para recompensas, perda, filas, velocidades e tempos de espera.
 
-- Gerar um ficheiro `README_brief.md` em inglês mais curto para apresentações.
-- Criar um notebook com visualizações de um `model_N/test_*` salvo.
-- Aplicar as melhorias sugeridas (flag `done`, epsilon_min, atualização target mais frequente) e executar um pequeno teste local.
+**Análise, Resultados e Visualização**
+- Use os scripts em **analysis/** para agregar resultados e gerar comparações.
+- Exemplos: gráficos de reward por episódio (`Reward_C1.txt`), MSE loss por modelo e barras de tempo médio de fase.
 
--- Fim do README completo.
+**Limitações & Melhorias Recomendadas**
+- O buffer de replay não inclui flag `done`; para episódios com terminação variável recomendo adicionar `done` e tratar corretamente o target.
+- Introduzir `epsilon_min` para exploração persistente (evitar epsilon → 0).
+- Atualizar target network periodicamente (por passos) em vez de sincronizar só no fim do episódio pode melhorar estabilidade.
+- Considerar normalização/standardização mais robusta do estado e arquitetura com camadas residuais ou regularização (dropout / weight decay) se overfitting for observado.
+
+**Contribuir**
+- Fork → branch feature → Pull Request com descrição e resultados experimentais.
+
+**Licença & Contacto**
+- Adicione um ficheiro `LICENSE` com a licença desejada (ex.: MIT). Para contacto, consulte os metadados do repositório ou o autor original.
+
+---
+
+Se quiseres, prossigo com:
+- Gerar um resumo em inglês para apresentações;
+- Adicionar um notebook de análise com um exemplo de `models/model_<N>/`;
+- Implementar melhorias rápidas (flag `done`, `epsilon_min`, atualização do target por passos) e testar num episódio.
+
+Fim.
+

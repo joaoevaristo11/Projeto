@@ -20,15 +20,13 @@ class Simulation:
     def __init__(self, Model_1, Model_2, Model_Duration,
                  TrafficGen, PedestrianGen, sumo_cmd, max_steps,
                  yellow_duration,
-                 # ALTERADO: num_states separado em num_states_cell1, num_states_cell2, num_states_duration
-                 # num_states, num_actions_phase, num_actions_duration,
                  num_states_cell1, num_states_cell2, num_states_duration,
                  num_actions_phase, num_actions_duration,
                  network, n_agents):
 
         self._Model_Cell_1   = Model_1
         self._Model_Cell_2   = Model_2
-        self._Model_Duration = Model_Duration
+        # self._Model_Duration = Model_Duration  # DESATIVADO: Cell_Duration comentada
 
         self._TrafficGen    = TrafficGen
         self._PedestrianGen = PedestrianGen
@@ -36,21 +34,19 @@ class Simulation:
         self._sumo_cmd      = sumo_cmd
         self._max_steps     = max_steps
         self._yellow_duration      = yellow_duration
-        # ALTERADO: três num_states separados
-        self._num_states_cell1    = num_states_cell1    # 170 para J1/J3
-        self._num_states_cell2    = num_states_cell2    # 176 para J2/J4
-        self._num_states_duration = num_states_duration # 170 para Cell_Duration
+        self._num_states_cell1    = num_states_cell1    # 84  para J1/J3
+        self._num_states_cell2    = num_states_cell2    # 124 para J2/J4
+        # self._num_states_duration = num_states_duration  # DESATIVADO
         self._num_actions_phase    = num_actions_phase
         self._num_actions_duration = num_actions_duration
         self._type_Network  = network
         self._n_agents      = n_agents
 
-        # ALTERADO: create_intersections recebe dict com num_states por cruzamento
         self.intersections = intersection_manager.create_intersections({
-            1: self._num_states_cell1,
-            2: self._num_states_cell2,
-            3: self._num_states_cell1,
-            4: self._num_states_cell2,
+            1: self._num_states_cell1,   # J1 → Cell_1 → 84
+            2: self._num_states_cell2,   # J2 → Cell_2 → 124
+            3: self._num_states_cell1,   # J3 → Cell_1 → 84
+            4: self._num_states_cell2,   # J4 → Cell_2 → 124
         })
         for C in self.intersections.values():
             C.yellow_duration = self._yellow_duration
@@ -77,6 +73,8 @@ class Simulation:
     def _get_phase_model(self, idx):
         return self._Model_Cell_1 if idx in (1, 3) else self._Model_Cell_2
 
+    # ── Loop principal ───────────────────────────────────────────────────────
+
     def run(self, episode):
         start_time = timeit.default_timer()
         self._TrafficGen.generate_routefile(seed=episode)
@@ -102,24 +100,26 @@ class Simulation:
                 else:
                     if C.dur == 0 or C.dur == -1:
                         if C.yellow == 0:
-                            # estado para rede de fase (170 ou 176 conforme idx)
+                            # estado para rede de fase (84 ou 124 conforme idx)
                             current_state = C.get_state(
                                 idx, self.waiting_ped[idx], self.routes,
                                 self.lanes_110_132, C.old_action
                             )
-                            # ADICIONADO: estado para Cell_Duration (sempre 170)
-                            duration_state = C.get_state_duration(
-                                idx, self.waiting_ped[idx], self.routes,
-                                self.lanes_110_132, C.old_action
-                            )
+
+                            # DESATIVADO: estado para Cell_Duration
+                            # duration_state = C.get_state_duration(
+                            #     idx, self.waiting_ped[idx], self.routes,
+                            #     self.lanes_110_132, C.old_action
+                            # )
 
                             phase_model = self._get_phase_model(idx)
                             C.action = int(np.argmax(phase_model.predict_one(current_state)))
 
-                            # ALTERADO: Cell_Duration usa duration_state (170) em vez de current_state
-                            C.action_dur = int(np.argmax(
-                                self._Model_Duration.predict_one(duration_state)
-                            ))
+                            # DESATIVADO: Cell_Duration escolhe duração
+                            # C.action_dur = int(np.argmax(
+                            #     self._Model_Duration.predict_one(duration_state)
+                            # ))
+                            C.action_dur = 1  # duração fixa: DURATION_VALUES[1] = 16s
 
                         dur_yellow, C.yellow = C.choose_phase(
                             self._step, C.action, C.old_action,
@@ -158,6 +158,8 @@ class Simulation:
 
         traci.close()
         return round(timeit.default_timer() - start_time, 1)
+
+    # ── Métodos auxiliares ───────────────────────────────────────────────────
 
     def _veh_volumes(self):
         for lane_id in Volume_Lanes:
@@ -218,7 +220,7 @@ class Simulation:
     def _get_queue_length(self, idx, queue):
         queue.append(sum(traci.edge.getLastStepHaltingNumber(r) for r in self.incoming_roads[idx]))
 
-    # ── Properties ────────────────────────────────────────────────────────────
+    # ── Properties ───────────────────────────────────────────────────────────
 
     @property
     def queue_stores(self):

@@ -29,13 +29,12 @@ if __name__ == "__main__":
     print("GPUs disponíveis:", gpus)
 
     # ── Modelos de FASE ───────────────────────────────────────────────────────
-    # ALTERADO: input_dim usa num_states_cell1/cell2 em vez de num_states único
     Model_Cell_1 = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states_cell1'],   # 170: J1/J3 (MT_* 2 lanes)
+        input_dim=config['num_states_cell1'],   # 84: J1/J3
         output_dim=config['num_actions_phase']
     )
     Model_Cell_2 = TrainModel(
@@ -43,25 +42,28 @@ if __name__ == "__main__":
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states_cell2'],   # 176: J2/J4 (510_* 3 lanes)
+        input_dim=config['num_states_cell2'],   # 124: J2/J4
         output_dim=config['num_actions_phase']
     )
 
-    # ── Modelo de DURAÇÃO ─────────────────────────────────────────────────────
-    # ALTERADO: input_dim usa num_states_duration (sempre 170, igual para todos)
-    Model_Duration = TrainModel(
-        config['num_layers'],
-        config['width_layers'],
-        config['batch_size'],
-        config['learning_rate'],
-        input_dim=config['num_states_duration'],  # 170: mesma dimensão para todos
-        output_dim=config['num_actions_duration']
-    )
+    # ── Modelo de DURAÇÃO — DESATIVADO ────────────────────────────────────────
+    # Model_Duration = TrainModel(
+    #     config['num_layers'],
+    #     config['width_layers'],
+    #     config['batch_size'],
+    #     config['learning_rate'],
+    #     input_dim=config['num_states_duration'],  # 170: mesma dimensão para todos
+    #     output_dim=config['num_actions_duration']
+    # )
+    Model_Duration = None  # substituído por duração fixa (16s) na simulation
 
     # ── Memórias ──────────────────────────────────────────────────────────────
-    Memory_Cell_1   = Memory(config['memory_size_max'], config['memory_size_min'])
-    Memory_Cell_2   = Memory(config['memory_size_max'], config['memory_size_min'])
-    Memory_Duration = Memory(config['memory_size_max'], config['memory_size_min'])
+    Memory_Cell_1 = Memory(config['memory_size_max'], config['memory_size_min'])
+    Memory_Cell_2 = Memory(config['memory_size_max'], config['memory_size_min'])
+
+    # DESATIVADO: memória de duração
+    # Memory_Duration = Memory(config['memory_size_max'], config['memory_size_min'])
+    Memory_Duration = None
 
     TrafficGen = TrafficGenerator(
         config['max_steps'],
@@ -77,20 +79,19 @@ if __name__ == "__main__":
     Sim = Simulation(
         Model_Cell_1,
         Model_Cell_2,
-        Model_Duration,
+        Model_Duration,      # None — Cell_Duration desativada
         Memory_Cell_1,
         Memory_Cell_2,
-        Memory_Duration,
+        Memory_Duration,     # None — Cell_Duration desativada
         TrafficGen,
         PedestrianGen,
         sumo_cmd,
         config['gamma'],
         config['max_steps'],
         config['yellow_duration'],
-        # ALTERADO: passa os três num_states separados em vez de um único
-        config['num_states_cell1'],
-        config['num_states_cell2'],
-        config['num_states_duration'],
+        config['num_states_cell1'],      # 84
+        config['num_states_cell2'],      # 124
+        config['num_states_duration'],   # mantido no config mas não usado
         config['num_actions_phase'],
         config['num_actions_duration'],
         config['training_epochs']
@@ -115,7 +116,8 @@ if __name__ == "__main__":
 
     Model_Cell_1.save_model(path, "Trained_Cell_1")
     Model_Cell_2.save_model(path, "Trained_Cell_2")
-    Model_Duration.save_model(path, "Trained_Duration")
+    # DESATIVADO: guardar modelo de duração
+    # Model_Duration.save_model(path, "Trained_Duration")
 
     copyfile(src='config/training_settings.ini',
              dst=os.path.join(path, 'training_settings.ini'))
@@ -128,6 +130,10 @@ if __name__ == "__main__":
             ylabel=f'Cumulative negative reward of C{idx}'
         )
 
-    Viz.save_data_and_plot(data=Sim.model_loss_cell_1,   filename='MSE Loss Cell 1',   xlabel='Episode', ylabel='Loss')
-    Viz.save_data_and_plot(data=Sim.model_loss_cell_2,   filename='MSE Loss Cell 2',   xlabel='Episode', ylabel='Loss')
-    Viz.save_data_and_plot(data=Sim.model_loss_duration, filename='MSE Loss Duration', xlabel='Episode', ylabel='Loss')
+    Viz.save_data_and_plot(data=Sim.model_loss_cell_1, filename='MSE Loss Cell 1',
+                           xlabel='Episode', ylabel='Loss')
+    Viz.save_data_and_plot(data=Sim.model_loss_cell_2, filename='MSE Loss Cell 2',
+                           xlabel='Episode', ylabel='Loss')
+    # DESATIVADO: gráfico de loss da Cell_Duration
+    # Viz.save_data_and_plot(data=Sim.model_loss_duration, filename='MSE Loss Duration',
+    #                        xlabel='Episode', ylabel='Loss')
