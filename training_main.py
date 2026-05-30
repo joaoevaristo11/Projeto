@@ -14,6 +14,7 @@ from src.agents.memory import Memory
 from src.agents.model import TrainModel
 from src.utils.visualization import Visualization
 from src.utils.utils import import_train_configuration, set_sumo, set_train_path
+from src.agents.intersection import NUM_ACTIONS_COMBINED   # 8: 2 fases × 4 durações
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train DDQN traffic control models')
@@ -28,14 +29,17 @@ if __name__ == "__main__":
     gpus = tf.config.list_physical_devices('GPU')
     print("GPUs disponíveis:", gpus)
 
-    # ── Modelos de FASE ───────────────────────────────────────────────────────
+    # ── Modelos de fase + duração combinadas (Opção C) ────────────────────────
+    # output_dim = NUM_ACTIONS_COMBINED = 8
+    #   ação 0-3 → NS + [10, 20, 30, 40]s
+    #   ação 4-7 → EW + [10, 20, 30, 40]s
     Model_Cell_1 = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
         input_dim=config['num_states_cell1'],   # 84: J1/J3
-        output_dim=config['num_actions_phase']
+        output_dim=NUM_ACTIONS_COMBINED         # 8
     )
     Model_Cell_2 = TrainModel(
         config['num_layers'],
@@ -43,27 +47,12 @@ if __name__ == "__main__":
         config['batch_size'],
         config['learning_rate'],
         input_dim=config['num_states_cell2'],   # 124: J2/J4
-        output_dim=config['num_actions_phase']
+        output_dim=NUM_ACTIONS_COMBINED         # 8
     )
-
-    # ── Modelo de DURAÇÃO — DESATIVADO ────────────────────────────────────────
-    # Model_Duration = TrainModel(
-    #     config['num_layers'],
-    #     config['width_layers'],
-    #     config['batch_size'],
-    #     config['learning_rate'],
-    #     input_dim=config['num_states_duration'],  # 170: mesma dimensão para todos
-    #     output_dim=config['num_actions_duration']
-    # )
-    Model_Duration = None  # substituído por duração fixa (16s) na simulation
 
     # ── Memórias ──────────────────────────────────────────────────────────────
     Memory_Cell_1 = Memory(config['memory_size_max'], config['memory_size_min'])
     Memory_Cell_2 = Memory(config['memory_size_max'], config['memory_size_min'])
-
-    # DESATIVADO: memória de duração
-    # Memory_Duration = Memory(config['memory_size_max'], config['memory_size_min'])
-    Memory_Duration = None
 
     TrafficGen = TrafficGenerator(
         config['max_steps'],
@@ -79,10 +68,10 @@ if __name__ == "__main__":
     Sim = Simulation(
         Model_Cell_1,
         Model_Cell_2,
-        Model_Duration,      # None — Cell_Duration desativada
+        None,            # Model_Duration — não usado (Opção C)
         Memory_Cell_1,
         Memory_Cell_2,
-        Memory_Duration,     # None — Cell_Duration desativada
+        None,            # Memory_Duration — não usado (Opção C)
         TrafficGen,
         PedestrianGen,
         sumo_cmd,
@@ -92,8 +81,8 @@ if __name__ == "__main__":
         config['num_states_cell1'],      # 84
         config['num_states_cell2'],      # 124
         config['num_states_duration'],   # mantido no config mas não usado
-        config['num_actions_phase'],
-        config['num_actions_duration'],
+        config['num_actions_phase'],     # 2 — usado para logging por fase
+        config['num_actions_duration'],  # 4 — mantido para compatibilidade
         config['training_epochs']
     )
 
@@ -105,7 +94,7 @@ if __name__ == "__main__":
 
     for episode in range(1, config['total_episodes'] + 1):
         print(f'\n----- Episode {episode} of {config["total_episodes"]}')
-        epsilon = 1.0 - (episode / config['total_episodes'])
+        epsilon = max(0.1, 1.0 - (episode / config['total_episodes']))
         simulation_time, training_time = Sim.run(episode, epsilon, train_ON_OFF=1)
         print(f'Simulation time: {simulation_time}s  |  Training time: {training_time}s  '
               f'|  Total: {round(simulation_time + training_time, 1)}s')
@@ -116,8 +105,6 @@ if __name__ == "__main__":
 
     Model_Cell_1.save_model(path, "Trained_Cell_1")
     Model_Cell_2.save_model(path, "Trained_Cell_2")
-    # DESATIVADO: guardar modelo de duração
-    # Model_Duration.save_model(path, "Trained_Duration")
 
     copyfile(src='config/training_settings.ini',
              dst=os.path.join(path, 'training_settings.ini'))
@@ -134,6 +121,3 @@ if __name__ == "__main__":
                            xlabel='Episode', ylabel='Loss')
     Viz.save_data_and_plot(data=Sim.model_loss_cell_2, filename='MSE Loss Cell 2',
                            xlabel='Episode', ylabel='Loss')
-    # DESATIVADO: gráfico de loss da Cell_Duration
-    # Viz.save_data_and_plot(data=Sim.model_loss_duration, filename='MSE Loss Duration',
-    #                        xlabel='Episode', ylabel='Loss')

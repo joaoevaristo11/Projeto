@@ -3,7 +3,7 @@ import numpy as np
 import timeit
 import src.simulation.intersection_manager as intersection_manager
 # import src.algorithms.sapa as sapa
-from src.agents.intersection import DURATION_VALUES
+from src.agents.intersection import DURATION_VALUES, decode_action, NUM_ACTIONS_COMBINED
 
 PHASE_TO_ACTION = {
     0: 1,   # NS green
@@ -24,21 +24,19 @@ class Simulation:
                  num_actions_phase, num_actions_duration,
                  network, n_agents):
 
-        self._Model_Cell_1   = Model_1
-        self._Model_Cell_2   = Model_2
-        # self._Model_Duration = Model_Duration  # DESATIVADO: Cell_Duration comentada
+        self._Model_Cell_1 = Model_1
+        self._Model_Cell_2 = Model_2
+        # Model_Duration ignorado: duração integrada na ação combinada (Opção C)
 
         self._TrafficGen    = TrafficGen
         self._PedestrianGen = PedestrianGen
         self._step          = 0
         self._sumo_cmd      = sumo_cmd
         self._max_steps     = max_steps
-        self._yellow_duration      = yellow_duration
-        self._num_states_cell1    = num_states_cell1    # 84  para J1/J3
-        self._num_states_cell2    = num_states_cell2    # 124 para J2/J4
-        # self._num_states_duration = num_states_duration  # DESATIVADO
-        self._num_actions_phase    = num_actions_phase
-        self._num_actions_duration = num_actions_duration
+        self._yellow_duration  = yellow_duration
+        self._num_states_cell1 = num_states_cell1   # 84  para J1/J3
+        self._num_states_cell2 = num_states_cell2   # 124 para J2/J4
+        self._num_actions_phase = num_actions_phase  # 2 — usado para logging por fase
         self._type_Network  = network
         self._n_agents      = n_agents
 
@@ -90,6 +88,7 @@ class Simulation:
             for idx, C in self.intersections.items():
 
                 if self._is_real_mode():
+                    # modo real: ação 0 ou 1 (fase apenas, sem duração combinada)
                     C.action = self._real_action_for_step(idx)
                     C.set_green_phase(C.action, self.tl_names[idx])
                     if C.old_action != C.action:
@@ -100,43 +99,32 @@ class Simulation:
                 else:
                     if C.dur == 0 or C.dur == -1:
                         if C.yellow == 0:
-                            # estado para rede de fase (84 ou 124 conforme idx)
+                            # estado para rede (84 ou 124 conforme idx)
                             current_state = C.get_state(
                                 idx, self.waiting_ped[idx], self.routes,
                                 self.lanes_110_132, C.old_action
                             )
-
-                            # DESATIVADO: estado para Cell_Duration
-                            # duration_state = C.get_state_duration(
-                            #     idx, self.waiting_ped[idx], self.routes,
-                            #     self.lanes_110_132, C.old_action
-                            # )
-
                             phase_model = self._get_phase_model(idx)
+                            # ação combinada 0-7: fase + duração em simultâneo
                             C.action = int(np.argmax(phase_model.predict_one(current_state)))
 
-                            # DESATIVADO: Cell_Duration escolhe duração
-                            # C.action_dur = int(np.argmax(
-                            #     self._Model_Duration.predict_one(duration_state)
-                            # ))
-                            C.action_dur = 1  # duração fixa: DURATION_VALUES[1] = 16s
+                        # decodificar ação combinada → (fase, duração verde)
+                        phase, green_dur = decode_action(C.action)
+                        old_phase = decode_action(C.old_action)[0] if C.old_action != -1 else -1
 
                         dur_yellow, C.yellow = C.choose_phase(
-                            self._step, C.action, C.old_action,
+                            self._step, phase, old_phase,
                             self.tl_names[idx], C.yellow
                         )
+                        C.dur = dur_yellow if C.yellow == 1 else green_dur
 
-                        if C.yellow == 1:
-                            C.dur = dur_yellow
-                        else:
-                            C.dur = DURATION_VALUES[C.action_dur]
-
+                        # old_action atualizado APÓS choose_phase → yellow pode disparar
                         C.old_action = C.action
 
                         if C.yellow == 0:
-                            C.phase_duration[C.action] += C.dur
-                            C.n_times_active[C.action] += 1
-                            C.duration_log[C.action].append(DURATION_VALUES[C.action_dur])
+                            C.phase_duration[phase] += C.dur
+                            C.n_times_active[phase] += 1
+                            C.duration_log[phase].append(green_dur)
 
                     if C.dur > 0:
                         C.dur -= 1
@@ -169,6 +157,7 @@ class Simulation:
                 self._veiculos_unicos[lane_id].update(novos)
 
     def _time_extension(self, C):
+        # itera sobre fases (0=NS, 1=EW) — não sobre ações combinadas
         if self._step % 300 == 0:
             for phase_id in range(self._num_actions_phase):
                 avg = (C.phase_duration[phase_id] / C.n_times_active[phase_id]
