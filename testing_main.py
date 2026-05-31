@@ -41,19 +41,18 @@ if __name__ == "__main__":
             config['episode_seed']
         )
 
-    # ── Carregar modelos ou None em modo REAL ─────────────────────────────────
     # TestModel carrega a arquitetura do .h5 — output_dim=8 já está no ficheiro
     if real_mode:
         Model_Cell_1 = None
         Model_Cell_2 = None
     else:
         Model_Cell_1 = TestModel(
-            input_dim=config['num_states_cell1'],   # 84: J1/J3
+            input_dim=config['num_states_cell1'],   # 93: J1/J3
             model_path=model_path,
             name="Trained_Cell_1.h5"
         )
         Model_Cell_2 = TestModel(
-            input_dim=config['num_states_cell2'],   # 124: J2/J4
+            input_dim=config['num_states_cell2'],   # 135: J2/J4
             model_path=model_path,
             name="Trained_Cell_2.h5"
         )
@@ -72,17 +71,17 @@ if __name__ == "__main__":
     Simulation = Simulation(
         Model_Cell_1 if not real_mode else None,
         Model_Cell_2 if not real_mode else None,
-        None,            # Model_Duration — não usado (Opção C: duração na ação combinada)
+        None,
         TrafficGen,
         PedestrianGen,
         sumo_cmd,
         config['max_steps'],
         config['yellow_duration'],
-        config['num_states_cell1'],      # 84
-        config['num_states_cell2'],      # 124
-        config['num_states_duration'],   # mantido no config mas não usado
-        config['num_actions_phase'],     # 2 — para logging por fase
-        config['num_actions_duration'],  # 4 — para compatibilidade
+        config['num_states_cell1'],      # 93
+        config['num_states_cell2'],      # 135
+        config['num_states_duration'],
+        config['num_actions_phase'],
+        config['num_actions_duration'],
         config['network'],
         config['n_agents']
     )
@@ -126,7 +125,6 @@ if __name__ == "__main__":
     )
 
     if not real_mode:
-        # duration_log regista a duração verde escolhida por fase (decodificada da ação combinada)
         for idx, phase_logs in Simulation.duration_log_stores.items():
             for phase_id, durations in phase_logs.items():
                 phase_name = "NS" if phase_id == 0 else "EW"

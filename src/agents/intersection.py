@@ -8,21 +8,26 @@ PHASE_EW_GREEN  = 3  # verde Este-Oeste
 PHASE_EW_YELLOW = 4  # amarelo EW
 PHASE_EW_RED    = 5  # tudo vermelho após EW
 
-NUM_ACTIONS_PHASE    = 2               # fases possíveis: NS ou EW
-NUM_ACTIONS_DURATION = 4               # durações possíveis: 10, 20, 30, 40s
-DURATION_VALUES      = [10, 20, 30, 40]  # segundos de verde
+NUM_ACTIONS_PHASE    = 2
+NUM_ACTIONS_DURATION = 4
+DURATION_VALUES      = [15, 25, 35, 45]
 
 # ── Ação combinada (fase + duração) ─────────────────────────────────────────
-# Ação 0 → NS + 10s  |  Ação 4 → EW + 10s
-# Ação 1 → NS + 20s  |  Ação 5 → EW + 20s
-# Ação 2 → NS + 30s  |  Ação 6 → EW + 30s
-# Ação 3 → NS + 40s  |  Ação 7 → EW + 40s
+# Ação 0 → NS + 15s  |  Ação 4 → EW + 15s
+# Ação 1 → NS + 25s  |  Ação 5 → EW + 25s
+# Ação 2 → NS + 35s  |  Ação 6 → EW + 35s
+# Ação 3 → NS + 45s  |  Ação 7 → EW + 45s
 NUM_ACTIONS_COMBINED = NUM_ACTIONS_PHASE * NUM_ACTIONS_DURATION  # 8
 
-NUM_ACTIONS = NUM_ACTIONS_COMBINED   # alias usado pelo caller
+# ── Dimensões de estado ──────────────────────────────────────────────────────
+# Cell_1: 84 base + 9 action_encode = 93
+# Cell_2: 124 base + 9 action_encode = 135
+NUM_STATE_ENCODE = NUM_ACTIONS_COMBINED + 1   # 9: one-hot(8) + fase(1)
+
+NUM_ACTIONS = NUM_ACTIONS_COMBINED
 MAX_EDGES   = 4
 
-INTERSECTIONS_PER_LANE = {2, 4}   # J2 e J4 têm edges com 3 lanes
+INTERSECTIONS_PER_LANE = {2, 4}
 
 # ── Thresholds de distância (10 células por grupo) ──────────────────────────
 _THRESH_200 = [7, 15, 25, 35, 55, 70, 100, 130, 150, 200]
@@ -34,14 +39,14 @@ def decode_action(action):
     """
     Converte a ação combinada (0-7) em (phase, green_duration).
 
-    phase          = action // NUM_ACTIONS_DURATION   (0=NS, 1=EW)
-    green_duration = DURATION_VALUES[action % NUM_ACTIONS_DURATION]
+      phase          = action // NUM_ACTIONS_DURATION   (0=NS, 1=EW)
+      green_duration = DURATION_VALUES[action % NUM_ACTIONS_DURATION]
 
     Exemplos:
-      decode_action(0) → (0, 10)   NS + 10s
-      decode_action(3) → (0, 40)   NS + 40s
-      decode_action(4) → (1, 10)   EW + 10s
-      decode_action(7) → (1, 40)   EW + 40s
+      decode_action(0) → (0, 15)   NS + 15s
+      decode_action(3) → (0, 45)   NS + 45s
+      decode_action(4) → (1, 15)   EW + 15s
+      decode_action(7) → (1, 45)   EW + 45s
     """
     phase    = action // NUM_ACTIONS_DURATION
     duration = DURATION_VALUES[action % NUM_ACTIONS_DURATION]
@@ -68,7 +73,7 @@ class Intersection:
         self.old_total_wait = 0
         self.old_ped_wait   = 0
 
-        # testing — indexados por FASE (0=NS, 1=EW) para manter compatibilidade
+        # testing — indexados por FASE (0=NS, 1=EW)
         self.queue_length         = []
         self.phase_activated      = []
         self.awt_greenArea        = []
@@ -81,7 +86,7 @@ class Intersection:
         self.phase_extension_1_hour = [0] * (NUM_ACTIONS_PHASE + 1)
         self.phase_extension_5min   = [0] * (NUM_ACTIONS_PHASE + 1)
         self.phase_durations        = [[] for _ in range(NUM_ACTIONS_PHASE + 1)]
-        self.duration_log           = {0: [], 1: []}  # durações escolhidas por fase
+        self.duration_log           = {0: [], 1: []}
 
     # ── Esperas ─────────────────────────────────────────────────────────────
 
@@ -119,7 +124,7 @@ class Intersection:
         return len(thresholds) - 1
 
     def lane_group(self, route, edge_id):
-        """Mantido para compatibilidade — não usado pelo novo get_state."""
+        """Mantido para compatibilidade."""
         try:
             pos = list(route).index(edge_id)
         except ValueError:
@@ -128,13 +133,32 @@ class Intersection:
             return {0: 2, 1: 2, 2: 0, 3: 6, 4: 6, 5: 4}.get(pos, -1)
         return {0: 2, 1: 0, 2: 6, 3: 4}.get(pos, -1)
 
+    # ── Action encode ────────────────────────────────────────────────────────
+
+    def action_encode(self, state, action):
+        """
+        Codifica a ação combinada (0-7) em 9 dimensões adicionadas ao estado:
+
+          Bits 0-7 (8 bits): one-hot da ação combinada
+                             → diz à rede exactamente que (fase+duração) está activa
+          Bit  8   (1 bit):  fase activa simplificada (0.0=NS, 1.0=EW)
+                             → sinal explícito directo da fase
+
+        Com action=-1 (início de episódio): todos a zero.
+
+        Cell_1: 84 + 9 = 93 estados
+        Cell_2: 124 + 9 = 135 estados
+        """
+        encode = np.zeros(NUM_STATE_ENCODE)   # 9 zeros
+        if 0 <= action < NUM_ACTIONS_COMBINED:
+            encode[action] = 1.0                          # one-hot (bits 0-7)
+            encode[NUM_ACTIONS_COMBINED] = float(action // NUM_ACTIONS_DURATION)  # fase (bit 8)
+        return np.concatenate([state, encode])
+
     # ── Lógica de fases ─────────────────────────────────────────────────────
 
     def choose_phase(self, step, phase, old_phase, name, yellow):
-        """
-        Recebe a FASE decodificada (0=NS ou 1=EW), não a ação combinada.
-        A duração já foi extraída por decode_action() no caller.
-        """
+        """Recebe fase decodificada (0=NS, 1=EW), não a ação combinada."""
         if step != 0 and old_phase != phase and old_phase != -1 and yellow == 0:
             self.set_yellow_phase(old_phase, name)
             return self.yellow_duration, 1
@@ -154,36 +178,23 @@ class Intersection:
         elif phase_id == 1:
             traci.trafficlight.setPhase(TL_NAME, PHASE_EW_YELLOW)
 
-    # ── Métodos antigos — COMENTADOS ────────────────────────────────────────
-
-    # def lane_occupancy(self, state, routes): ...
-    # def lane_occupancy_per_lane(self, state, routes): ...
-    # def pedestrians_state(self, state, wz): ...
-    # def action_encode(self, state, action): ...
-    # def _build_base_state(self, idx, wz, routes, lanes_200_400, action): ...
-    # def get_state_OLD(self, idx, wz, routes, lanes_200_400, action): ...
-    # def get_state_duration(self, idx, wz, routes, lanes_200_400, action): ...
-
     # ── get_state ────────────────────────────────────────────────────────────
 
     def get_state(self, idx, wz, routes, lanes_200_400, action):
         """
-        Constrói o estado para as redes de fase+duração combinadas.
-        O parâmetro `action` é aceite por compatibilidade mas não é usado.
+        Constrói o estado completo com action_encode.
 
-        Cell_1 (idx=1 ou 3) — 84 estados:
+        Cell_1 (idx=1 ou 3) — 93 estados:
           índices   0-39  → presença   (4 abordagens × 10 células)
           índices  40-79  → speed      (4 abordagens × 10 células)
           índices  80-83  → peões      (4 zonas)
+          índices  84-92  → action_encode (8 one-hot + 1 fase)
 
-        Cell_2 (idx=2 ou 4) — 124 estados:
-          Edge 510_NS_1 (3 lanes): lanes 0+1 → grupo 0 | lane 2 → grupo 1
-          Edge EG_WE_2  (2 lanes): lanes 0+1 → grupo 2
-          Edge 510_SN_2 (3 lanes): lanes 0+1 → grupo 3 | lane 2 → grupo 4
-          Edge EG_EW_1  (2 lanes): lanes 0+1 → grupo 5
+        Cell_2 (idx=2 ou 4) — 135 estados:
           índices   0-59  → presença   (6 grupos × 10 células)
           índices  60-119 → speed      (6 grupos × 10 células)
           índices 120-123 → peões      (4 zonas)
+          índices 124-134 → action_encode (8 one-hot + 1 fase)
         """
         lanes200, lanes400 = lanes_200_400[0], lanes_200_400[1]
         lane = routes[idx]
@@ -265,4 +276,5 @@ class Intersection:
                     if lid_p == wl and spd < 0.1:
                         state[ped_offset + i] = 1
 
-        return state
+        # ── Action encode (+9) ───────────────────────────────────────
+        return self.action_encode(state, action)

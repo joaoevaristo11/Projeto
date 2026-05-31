@@ -34,22 +34,22 @@ class Simulation:
         self._sumo_cmd      = sumo_cmd
         self._max_steps     = max_steps
         self._yellow_duration = yellow_duration
-        self._num_states_cell1 = num_states_cell1   # 84  para J1/J3
-        self._num_states_cell2 = num_states_cell2   # 124 para J2/J4
+        self._num_states_cell1 = num_states_cell1   # 93  para J1/J3
+        self._num_states_cell2 = num_states_cell2   # 135 para J2/J4
         self._num_actions_phase = num_actions_phase  # 2 — usado para logging por fase
         self._training_epochs   = training_epochs
 
         self._model_training_loss_cell_1 = []
         self._model_training_loss_cell_2 = []
 
-        self._Pveh = 0.50
-        self._Pped = 0.50
+        self._Pveh = 0.75
+        self._Pped = 0.25
 
         self.intersections = intersection_manager.create_intersections({
-            1: self._num_states_cell1,   # J1 → Cell_1 → 84
-            2: self._num_states_cell2,   # J2 → Cell_2 → 124
-            3: self._num_states_cell1,   # J3 → Cell_1 → 84
-            4: self._num_states_cell2,   # J4 → Cell_2 → 124
+            1: self._num_states_cell1,   # J1 → Cell_1 → 93
+            2: self._num_states_cell2,   # J2 → Cell_2 → 135
+            3: self._num_states_cell1,   # J3 → Cell_1 → 93
+            4: self._num_states_cell2,   # J4 → Cell_2 → 135
         })
         for C in self.intersections.values():
             C.yellow_duration = self._yellow_duration
@@ -97,7 +97,6 @@ class Simulation:
                                                 self.lanes_110_132, 0)
                     ped_wait = C.pedestrians_WaitingTime(self.waiting_ped[idx])
 
-                    # ação combinada 0-7: escolhe fase E duração em simultâneo
                     C.action = self._choose_action(current_state, epsilon,
                                                    phase_model, NUM_ACTIONS_COMBINED)
                     phase, green_dur = decode_action(C.action)
@@ -107,10 +106,9 @@ class Simulation:
                     C.old_total_wait = 0
                     C.old_ped_wait   = ped_wait
 
-                    # step 0: old_phase=-1 → never yellow, sempre set_green
                     dur_yellow, C.yellow = C.choose_phase(
                         self._step, phase, -1, self.tl_names[idx], C.yellow)
-                    C.dur = green_dur   # yellow é sempre 0 no step 0
+                    C.dur = green_dur
 
             # ── Step normal ──────────────────────────────────────────
             for idx, C in self.intersections.items():
@@ -126,25 +124,20 @@ class Simulation:
                         reward = (self._Pveh * (C.old_total_wait - current_total_wait)
                                   + self._Pped * (C.old_ped_wait - ped_wait))
 
-                        # ação combinada: fase + duração (0-7)
                         C.action = self._choose_action(current_state, epsilon,
                                                        phase_model, NUM_ACTIONS_COMBINED)
 
-                        # transição (s, a, r, s') — a é a ação combinada 0-7
                         phase_memory.add_sample((C.old_state, C.old_action, reward, current_state))
 
                         C.old_state      = current_state
-                        C.old_action     = C.action   # mantém padrão existente
+                        C.old_action     = C.action
                         C.old_total_wait = current_total_wait
                         C.old_ped_wait   = ped_wait
 
                         if reward < 0:
                             C.sum_neg_reward += reward
 
-                    # decodificar ação atual → fase e duração
                     phase, green_dur = decode_action(C.action)
-                    # old_phase: como C.old_action = C.action acima, old_phase == phase
-                    # → amarelo nunca disparado no training (comportamento existente mantido)
                     old_phase = decode_action(C.old_action)[0] if C.old_action != -1 else -1
 
                     dur_yellow, C.yellow = C.choose_phase(

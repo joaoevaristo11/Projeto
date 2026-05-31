@@ -31,14 +31,14 @@ if __name__ == "__main__":
 
     # ── Modelos de fase + duração combinadas (Opção C) ────────────────────────
     # output_dim = NUM_ACTIONS_COMBINED = 8
-    #   ação 0-3 → NS + [10, 20, 30, 40]s
-    #   ação 4-7 → EW + [10, 20, 30, 40]s
+    #   ação 0-3 → NS + [15, 25, 35, 45]s
+    #   ação 4-7 → EW + [15, 25, 35, 45]s
     Model_Cell_1 = TrainModel(
         config['num_layers'],
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states_cell1'],   # 84: J1/J3
+        input_dim=config['num_states_cell1'],   # 93: J1/J3
         output_dim=NUM_ACTIONS_COMBINED         # 8
     )
     Model_Cell_2 = TrainModel(
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         config['width_layers'],
         config['batch_size'],
         config['learning_rate'],
-        input_dim=config['num_states_cell2'],   # 124: J2/J4
+        input_dim=config['num_states_cell2'],   # 135: J2/J4
         output_dim=NUM_ACTIONS_COMBINED         # 8
     )
 
@@ -78,8 +78,8 @@ if __name__ == "__main__":
         config['gamma'],
         config['max_steps'],
         config['yellow_duration'],
-        config['num_states_cell1'],      # 84
-        config['num_states_cell2'],      # 124
+        config['num_states_cell1'],      # 93
+        config['num_states_cell2'],      # 135
         config['num_states_duration'],   # mantido no config mas não usado
         config['num_actions_phase'],     # 2 — usado para logging por fase
         config['num_actions_duration'],  # 4 — mantido para compatibilidade
@@ -94,7 +94,7 @@ if __name__ == "__main__":
 
     for episode in range(1, config['total_episodes'] + 1):
         print(f'\n----- Episode {episode} of {config["total_episodes"]}')
-        epsilon = max(0.1, 1.0 - (episode / config['total_episodes']))
+        epsilon = max(0.05, 1.0 - (episode / config['total_episodes']))
         simulation_time, training_time = Sim.run(episode, epsilon, train_ON_OFF=1)
         print(f'Simulation time: {simulation_time}s  |  Training time: {training_time}s  '
               f'|  Total: {round(simulation_time + training_time, 1)}s')

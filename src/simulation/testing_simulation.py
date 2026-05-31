@@ -34,17 +34,17 @@ class Simulation:
         self._sumo_cmd      = sumo_cmd
         self._max_steps     = max_steps
         self._yellow_duration  = yellow_duration
-        self._num_states_cell1 = num_states_cell1   # 84  para J1/J3
-        self._num_states_cell2 = num_states_cell2   # 124 para J2/J4
+        self._num_states_cell1 = num_states_cell1   # 93  para J1/J3
+        self._num_states_cell2 = num_states_cell2   # 135 para J2/J4
         self._num_actions_phase = num_actions_phase  # 2 — usado para logging por fase
         self._type_Network  = network
         self._n_agents      = n_agents
 
         self.intersections = intersection_manager.create_intersections({
-            1: self._num_states_cell1,   # J1 → Cell_1 → 84
-            2: self._num_states_cell2,   # J2 → Cell_2 → 124
-            3: self._num_states_cell1,   # J3 → Cell_1 → 84
-            4: self._num_states_cell2,   # J4 → Cell_2 → 124
+            1: self._num_states_cell1,   # J1 → Cell_1 → 93
+            2: self._num_states_cell2,   # J2 → Cell_2 → 135
+            3: self._num_states_cell1,   # J3 → Cell_1 → 93
+            4: self._num_states_cell2,   # J4 → Cell_2 → 135
         })
         for C in self.intersections.values():
             C.yellow_duration = self._yellow_duration
@@ -54,7 +54,6 @@ class Simulation:
         self.incoming_roads = intersection_manager.create_incoming_routes()
         self.lanes_110_132  = intersection_manager.create_110_132_routes()
         self.map_env        = intersection_manager.create_map_environment_()
-        # self.sapa           = sapa.sapa_module()
 
         self._veiculos_unicos = {lane_id: set() for lane_id in Volume_Lanes}
         self._volume_por_lane = {lane_id: 0     for lane_id in Volume_Lanes}
@@ -88,7 +87,6 @@ class Simulation:
             for idx, C in self.intersections.items():
 
                 if self._is_real_mode():
-                    # modo real: ação 0 ou 1 (fase apenas, sem duração combinada)
                     C.action = self._real_action_for_step(idx)
                     C.set_green_phase(C.action, self.tl_names[idx])
                     if C.old_action != C.action:
@@ -99,16 +97,13 @@ class Simulation:
                 else:
                     if C.dur == 0 or C.dur == -1:
                         if C.yellow == 0:
-                            # estado para rede (84 ou 124 conforme idx)
                             current_state = C.get_state(
                                 idx, self.waiting_ped[idx], self.routes,
                                 self.lanes_110_132, C.old_action
                             )
                             phase_model = self._get_phase_model(idx)
-                            # ação combinada 0-7: fase + duração em simultâneo
                             C.action = int(np.argmax(phase_model.predict_one(current_state)))
 
-                        # decodificar ação combinada → (fase, duração verde)
                         phase, green_dur = decode_action(C.action)
                         old_phase = decode_action(C.old_action)[0] if C.old_action != -1 else -1
 
@@ -118,7 +113,6 @@ class Simulation:
                         )
                         C.dur = dur_yellow if C.yellow == 1 else green_dur
 
-                        # old_action atualizado APÓS choose_phase → yellow pode disparar
                         C.old_action = C.action
 
                         if C.yellow == 0:
@@ -157,7 +151,6 @@ class Simulation:
                 self._veiculos_unicos[lane_id].update(novos)
 
     def _time_extension(self, C):
-        # itera sobre fases (0=NS, 1=EW) — não sobre ações combinadas
         if self._step % 300 == 0:
             for phase_id in range(self._num_actions_phase):
                 avg = (C.phase_duration[phase_id] / C.n_times_active[phase_id]
